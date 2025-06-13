@@ -46,18 +46,19 @@ function ensureWidgetContainer() {
 
 // Wait for DOM ready and start widget
 window.addEventListener("DOMContentLoaded", async () => {
-  const accountId = getAccountId();
+  const account_id = getAccountId();
   ensureWidgetContainer();
 
-  const config = await loadConfig(accountId);
+  const config = await loadConfig(account_id);
   if (!config) return; // Fail UI already shown inside loadConfig()
 
   const userData = getUserContext();
   const enrichedConfig = {
     ...config,
-    ...userData
+    ...userData,
+	account_id
   };
 
-  console.log("✅ Loaded config for account:", accountId, enrichedConfig);
+  console.log("✅ Loaded config for account:", account_id, enrichedConfig);
   loadCancelFlow(enrichedConfig);
 });
