@@ -1,20 +1,14 @@
 // vite.config.js
-import { defineConfig } from 'vite';
-
-export default defineConfig({
+export default {
   build: {
-    lib: {
-      entry: 'src/main.js',
-      name: 'CancelWidget',
-      fileName: () => 'widget.js',
-      formats: ['iife'], // IIFE = self-executing for <script> tags
-    },
+    outDir: ".",
+    emptyOutDir: false, // So it doesn't delete your src/ etc.
     rollupOptions: {
+      input: "src/main.js",
       output: {
-        globals: {
-          // optionally declare globals for external libraries here
-        },
-      },
-    },
-  },
-});
+        entryFileNames: `widget.js`, // Clean output name
+      }
+    }
+  }
+};
+
