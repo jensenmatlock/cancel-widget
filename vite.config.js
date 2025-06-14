@@ -5,7 +5,7 @@ export default {
     outDir: '.',
     emptyOutDir: false, // So it doesn't delete your src/ etc.
     rollupOptions: {
-      input: './src/main.js',
+      input: 'src/main.js',
       output: {
         entryFileNames: `widget.js`, // Clean output name
       }
