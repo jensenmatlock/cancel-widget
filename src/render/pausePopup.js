@@ -1,4 +1,7 @@
+import { createHeadline, createSubheadline, createButton } from "../utils/domHelpers";
 import { getCopy } from '../utils/getCopy';
+import { getButtonClass } from "../utils/buttonStyles";
+import { renderPreviewRedirect } from "../utils/renderHelpers";
 import { fireAnalytics } from '../utils/tracking';
 import { logEvent } from '../utils/logger';
 
@@ -6,20 +9,11 @@ export function renderPausePopup(strings, settings, config, copy, state, renderN
   const container = document.getElementById("widget-container");
   container.innerHTML = "";
 
-  const popupCornerClass = {
-    rounded: "rounded-popup",
-    sharp: "sharp-popup"
-  }[config.theme_config?.popup_corners || "rounded"];
-  container.className = popupCornerClass;
-
   const wrapper = document.createElement("div");
   wrapper.className = "popup-content";
 
-  const headline = document.createElement("h2");
-  headline.textContent = getCopy("pause.headline", config);
-
-  const subheadline = document.createElement("p");
-  subheadline.textContent = getCopy("pause.subheadline", config);
+  const headline = createHeadline(getCopy("pause.headline", config));
+  const subheadline = createSubheadline(getCopy("pause.subheadline", config));
 
   const labelSelectWrapper = document.createElement("div");
   labelSelectWrapper.className = "inline-label-select";
@@ -35,7 +29,7 @@ export function renderPausePopup(strings, settings, config, copy, state, renderN
     settings.durations.forEach(d => {
       const opt = document.createElement("option");
       opt.value = d;
-      opt.textContent = `${d} month${d > 1 ? 's' : ''}`;
+      opt.textContent = `${d} billing cycle${d > 1 ? 's' : ''}`;
       select.appendChild(opt);
     });
   } else {
@@ -45,55 +39,52 @@ export function renderPausePopup(strings, settings, config, copy, state, renderN
   labelSelectWrapper.appendChild(label);
   labelSelectWrapper.appendChild(select);
 
-  const styleClass = config.theme_config?.button_style === "outline" ? "outline" : "fill";
-  const cornerClass = {
-    rounded: "rounded-btn",
-    sharp: "sharp-btn",
-    pill: "pill-btn"
-  }[config.theme_config?.button_corners || "rounded"];
+  const applyBtn = createButton(
+    getCopy("pause.cta_primary", config),
+    getButtonClass("primary", config),
+    async () => {
+      const duration = select.value;
+      const redirectTemplate = settings.redirect_template || "";
+      const userId = config.user_id || "";
 
-  const applyBtn = document.createElement("button");
-  applyBtn.textContent = getCopy("pause.cta_primary", config);
-  applyBtn.className = `cta-primary ${styleClass} ${cornerClass}`;
-  applyBtn.onclick = async () => {
-    const duration = select.value;
-    const redirectTemplate = settings.redirect_template || "";
-    const userId = config.user_id || "";
+      const redirectUrl = redirectTemplate
+        .replace("{{user_id}}", userId.toString())
+        .replace("{{pause_duration}}", duration.toString());
 
-    const redirectUrl = redirectTemplate
-      .replace("{{user_id}}", userId.toString())
-      .replace("{{pause_duration}}", duration.toString());
+      fireAnalytics("pause_selected", config);
 
-    fireAnalytics("pause_selected", config);
+      await logEvent({
+        accountId: config.account_id,
+        step: "pause_selected",
+        reasonKey: state.selectedReason,
+        config
+      });
 
-    await logEvent({
-      accountId: config.account_id,
-      step: "pause_selected",
-      reasonKey: state.selectedReason
-    });
-
-    if (redirectUrl) {
-      window.location.href = redirectUrl;
-    } else {
-      console.warn("⚠️ Redirect URL was empty — no redirect occurred");
+      if (config.preview) {
+        renderPreviewRedirect(redirectUrl);
+      } else {
+        window.location.href = redirectUrl;
+      }
     }
-  };
+  );
 
-  const continueBtn = document.createElement("button");
-  continueBtn.textContent = getCopy("pause.cta_secondary", config);
-  continueBtn.className = `cta-secondary ${styleClass} ${cornerClass}`;
-  continueBtn.onclick = async () => {
-    fireAnalytics("pause_skipped", config);
+  const continueBtn = createButton(
+    getCopy("pause.cta_secondary", config),
+    getButtonClass("secondary", config),
+    async () => {
+      fireAnalytics("pause_skipped", config);
 
-    await logEvent({
-      accountId: config.account_id,
-      step: "pause_skipped",
-      reasonKey: state.selectedReason
-    });
+      await logEvent({
+        accountId: config.account_id,
+        step: "pause_skipped",
+        reasonKey: state.selectedReason,
+        config
+      });
 
-    state.currentStepIndex++;
-    renderNextStep();
-  };
+      state.currentStepIndex++;
+      renderNextStep();
+    }
+  );
 
   const buttonRow = document.createElement("div");
   buttonRow.className = "button-row";

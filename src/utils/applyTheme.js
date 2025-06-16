@@ -2,14 +2,40 @@ export function applyTheme(config = {}) {
   const theme = config.theme_config || {};
   const root = document.documentElement;
 
-  // Load Google Font if specified
+  // Safely set font with timeout
   if (theme.font) {
+    const fontName = theme.font;
+    const fontUrl = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(fontName)}&display=swap`;
     const link = document.createElement("link");
-    link.href = `https://fonts.googleapis.com/css2?family=${encodeURIComponent(theme.font)}&display=swap`;
     link.rel = "stylesheet";
-    document.head.appendChild(link);
+    link.href = fontUrl;
 
-    root.style.setProperty("--font-family", `${theme.font}, sans-serif`);
+    let fontLoaded = false;
+
+    const timeout = setTimeout(() => {
+      if (!fontLoaded) {
+        console.warn("⚠️ Google Font load timed out. Falling back to sans-serif.");
+        root.style.setProperty("--font-family", `sans-serif`);
+      }
+    }, 2000);
+
+    link.onload = () => {
+      fontLoaded = true;
+      clearTimeout(timeout);
+      root.style.setProperty("--font-family", `'${fontName}', sans-serif`);
+      console.log("✅ Google Font loaded:", fontName);
+    };
+
+    link.onerror = () => {
+      clearTimeout(timeout);
+      console.warn("❌ Failed to load Google Font:", fontName);
+      root.style.setProperty("--font-family", `sans-serif`);
+    };
+
+    document.head.appendChild(link);
+  } else {
+    // fallback if no font set
+    root.style.setProperty("--font-family", `sans-serif`);
   }
 
   // Font colors

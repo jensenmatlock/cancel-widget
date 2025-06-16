@@ -4,6 +4,7 @@ export function getUserContext() {
 
   // Read from HTML data attributes first
   let user_id = attrs.userId;
+  let user_subscription_id = attrs.userSubscriptionId;
   let user_plan = attrs.userPlan;
   let user_plan_interval = attrs.userPlanInterval
   let user_ltv = attrs.userLtv;
@@ -13,6 +14,7 @@ export function getUserContext() {
     const latest = window.dataLayer.slice().reverse().find(entry => entry.user_id);
     if (latest) {
       user_id = latest.user_id || user_id;
+	  user_subscription_id = latest.user_subscription_id || user_subscription_id;
       user_plan = latest.user_plan || user_plan;
       user_plan_interval = latest.user_plan_interval || user_plan_interval;
 	  user_ltv = latest.user_ltv || user_ltv;
@@ -21,6 +23,7 @@ export function getUserContext() {
 
   return {
     user_id,
+	user_subscription_id,
     user_plan,
 	user_plan_interval,
     user_ltv

@@ -1,4 +1,7 @@
+import { createHeadline, createSubheadline, createButton } from "../utils/domHelpers";
 import { getCopy } from '../utils/getCopy';
+import { getButtonClass } from "../utils/buttonStyles";
+import { renderPreviewRedirect } from "../utils/renderHelpers";
 import { fireAnalytics } from '../utils/tracking';
 import { logEvent } from '../utils/logger';
 import { discountIconSVG } from '../assets/discountIcon';
@@ -7,69 +10,63 @@ export async function renderDiscountPopup(strings, discount, config, copy, state
   const container = document.getElementById("widget-container");
   container.innerHTML = "";
 
-  const popupCornerClass = {
-    rounded: "rounded-popup",
-    sharp: "sharp-popup"
-  }[config.theme_config?.popup_corners || "rounded"];
-  container.className = popupCornerClass;
-
-  const styleClass = config.theme_config?.button_style === "outline" ? "outline" : "fill";
-  const cornerClass = {
-    rounded: "rounded-btn",
-    sharp: "sharp-btn",
-    pill: "pill-btn"
-  }[config.theme_config?.button_corners || "rounded"];
-
   const wrapper = document.createElement("div");
   wrapper.className = "popup-content";
 
-  const headline = document.createElement("h2");
-  headline.textContent = getCopy("discount.headline", config);
+  const headline = createHeadline(getCopy("discount.headline", config));
 
-  const subheadline = document.createElement("p");
   const template = getCopy("discount.subheadline", config);
-  subheadline.textContent = template
+  const subheadlineText = template
     .replace("{{amount}}", discount.amount)
     .replace("{{duration}}", discount.duration);
+  const subheadline = createSubheadline(subheadlineText);
 
   const svgWrapper = document.createElement("div");
   svgWrapper.className = "illustration";
   svgWrapper.innerHTML = discountIconSVG;
 
-  const applyBtn = document.createElement("button");
-  applyBtn.textContent = getCopy("discount.cta_primary", config);
-  applyBtn.className = `cta-primary ${styleClass} ${cornerClass}`;
-  applyBtn.onclick = async () => {
-    const redirectUrl = discount.redirect_template
-      .replace("{{user_id}}", config.user_id || "")
-      .replace("{{promo_code}}", discount.promo_code || "");
+  const applyBtn = createButton(
+    getCopy("discount.cta_primary", config),
+    getButtonClass("primary", config),
+    async () => {
+      const redirectUrl = discount.redirect_template
+        .replace("{{user_id}}", config.user_id || "")
+        .replace("{{promo_code}}", discount.promo_code || "");
 
-    fireAnalytics("discount_selected", config);
+      fireAnalytics("discount_selected", config);
 
-    await logEvent({
-      accountId: config.account_id,
-      step: "discount_selected",
-      reasonKey: state.selectedReason
-    });
+      await logEvent({
+        accountId: config.account_id,
+        step: "discount_selected",
+        reasonKey: state.selectedReason,
+        config
+      });
 
-    window.location.href = redirectUrl;
-  };
+      if (config.preview) {
+        renderPreviewRedirect(redirectUrl);
+      } else {
+        window.location.href = redirectUrl;
+      }
+    }
+  );
 
-  const continueBtn = document.createElement("button");
-  continueBtn.textContent = getCopy("discount.cta_secondary", config);
-  continueBtn.className = `cta-secondary ${styleClass} ${cornerClass}`;
-  continueBtn.onclick = async () => {
-    fireAnalytics("discount_skipped", config);
+  const continueBtn = createButton(
+    getCopy("discount.cta_secondary", config),
+    getButtonClass("secondary", config),
+    async () => {
+      fireAnalytics("discount_skipped", config);
 
-    await logEvent({
-      accountId: config.account_id,
-      step: "discount_skipped",
-      reasonKey: state.selectedReason
-    });
+      await logEvent({
+        accountId: config.account_id,
+        step: "discount_skipped",
+        reasonKey: state.selectedReason,
+        config
+      });
 
-    state.currentStepIndex++;
-    renderNextStep();
-  };
+      state.currentStepIndex++;
+      renderNextStep();
+    }
+  );
 
   const buttonRow = document.createElement("div");
   buttonRow.className = "button-row";

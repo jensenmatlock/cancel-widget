@@ -1,4 +1,7 @@
+import { createHeadline, createSubheadline, createButton } from "../utils/domHelpers";
 import { getCopy } from '../utils/getCopy';
+import { getButtonClass } from "../utils/buttonStyles";
+import { renderPreviewRedirect } from "../utils/renderHelpers";
 import { fireAnalytics } from '../utils/tracking';
 import { logEvent } from '../utils/logger';
 
@@ -6,20 +9,11 @@ export function renderPlanSwitchPopup(strings, settings, config, copy, state, re
   const container = document.getElementById("widget-container");
   container.innerHTML = "";
 
-  const popupCornerClass = {
-    rounded: "rounded-popup",
-    sharp: "sharp-popup"
-  }[config.theme_config?.popup_corners || "rounded"];
-  container.className = popupCornerClass;
-
   const wrapper = document.createElement("div");
   wrapper.className = "popup-content";
 
-  const headline = document.createElement("h2");
-  headline.textContent = getCopy("plan_switch.headline", config);
-
-  const subheadline = document.createElement("p");
-  subheadline.textContent = getCopy("plan_switch.subheadline", config);
+  const headline = createHeadline(getCopy("plan_switch.headline", config));
+  const subheadline = createSubheadline(getCopy("plan_switch.subheadline", config));
 
   const labelSelectWrapper = document.createElement("div");
   labelSelectWrapper.className = "inline-label-select";
@@ -45,55 +39,49 @@ export function renderPlanSwitchPopup(strings, settings, config, copy, state, re
   labelSelectWrapper.appendChild(label);
   labelSelectWrapper.appendChild(select);
 
-  const styleClass = config.theme_config?.button_style === "outline" ? "outline" : "fill";
-  const cornerClass = {
-    rounded: "rounded-btn",
-    sharp: "sharp-btn",
-    pill: "pill-btn"
-  }[config.theme_config?.button_corners || "rounded"];
+  const applyBtn = createButton(
+    getCopy("plan_switch.cta_primary", config),
+    getButtonClass("primary", config),
+    async () => {
+      const selectedPlan = select.value;
+      const redirectUrl = (settings.redirect_template || "")
+        .replace("{{user_id}}", config.user_id || "")
+        .replace("{{plan_id}}", selectedPlan);
 
-  const applyBtn = document.createElement("button");
-  applyBtn.textContent = getCopy("plan_switch.cta_primary", config);
-  applyBtn.className = `cta-primary ${styleClass} ${cornerClass}`;
-  applyBtn.onclick = async () => {
-    const selectedPlan = select.value;
-    const redirectTemplate = settings.redirect_template || "";
-    const userId = config.user_id || "";
+      fireAnalytics("plan_switch_selected", config);
 
-    const redirectUrl = redirectTemplate
-      .replace("{{user_id}}", userId.toString())
-      .replace("{{plan_id}}", selectedPlan.toString());
+      await logEvent({
+        accountId: config.account_id,
+        step: "plan_switch_selected",
+        reasonKey: state.selectedReason,
+        config
+      });
 
-    fireAnalytics("planSwitch_selected", config);
-
-    await logEvent({
-      accountId: config.account_id,
-      step: "planSwitch_selected",
-      reasonKey: state.selectedReason
-    });
-
-    if (redirectUrl) {
-      window.location.href = redirectUrl;
-    } else {
-      console.warn("⚠️ Redirect URL was empty — no redirect occurred");
+      if (config.preview) {
+        renderPreviewRedirect(redirectUrl);
+      } else {
+        window.location.href = redirectUrl;
+      }
     }
-  };
+  );
 
-  const continueBtn = document.createElement("button");
-  continueBtn.textContent = getCopy("plan_switch.cta_secondary", config);
-  continueBtn.className = `cta-secondary ${styleClass} ${cornerClass}`;
-  continueBtn.onclick = async () => {
-    fireAnalytics("planSwitch_skipped", config);
+  const continueBtn = createButton(
+    getCopy("plan_switch.cta_secondary", config),
+    getButtonClass("secondary", config),
+    async () => {
+      fireAnalytics("plan_switch_skipped", config);
 
-    await logEvent({
-      accountId: config.account_id,
-      step: "planSwitch_skipped",
-      reasonKey: state.selectedReason
-    });
+      await logEvent({
+        accountId: config.account_id,
+        step: "plan_switch_skipped",
+        reasonKey: state.selectedReason,
+        config
+      });
 
-    state.currentStepIndex++;
-    renderNextStep();
-  };
+      state.currentStepIndex++;
+      renderNextStep();
+    }
+  );
 
   const buttonRow = document.createElement("div");
   buttonRow.className = "button-row";

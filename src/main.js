@@ -3,28 +3,25 @@ import { loadCancelFlow } from './render/reasonPopup';
 import { getUserContext } from './utils/configHelpers';
 import { widgetStyles } from './styles/injectedStyles';
 
-// 🔧 DEV fallback ID
-const DEV_ACCOUNT_ID = "acct_12345";
-
-// Get account ID from script tag, global var, query param, or fallback
+// Get account ID from script tag, global var, or query param
 function getAccountId() {
-  // Option 1: <script src=... data-account-id="..." />
   const scripts = document.querySelectorAll("script");
   for (let script of scripts) {
     const attr = script.getAttribute("data-account-id");
     if (attr) return attr;
   }
 
-  // Option 2: window.__widget_account_id
   if (window.__widget_account_id) return window.__widget_account_id;
 
-  // Option 3: query param
-  const params = new URLSearchParams(window.location.search);
-  const paramId = params.get("account_id");
+  const paramId = new URLSearchParams(window.location.search).get("account_id");
   if (paramId) return paramId;
 
-  // Default for dev preview
-  return DEV_ACCOUNT_ID;
+  return null; // no fallback
+}
+
+function isPreviewMode() {
+  const params = new URLSearchParams(window.location.search);
+  return params.get("previewMode") === "true";
 }
 
 function injectStyles(cssText) {
@@ -35,7 +32,6 @@ function injectStyles(cssText) {
 
 injectStyles(widgetStyles);
 
-// Inject widget container if missing
 function ensureWidgetContainer() {
   if (!document.getElementById("widget-container")) {
     const div = document.createElement("div");
@@ -44,19 +40,25 @@ function ensureWidgetContainer() {
   }
 }
 
-// Wait for DOM ready and start widget
 window.addEventListener("DOMContentLoaded", async () => {
   const account_id = getAccountId();
+
+  if (!account_id) {
+    console.error("❌ No account ID provided.");
+    return;
+  }
+
   ensureWidgetContainer();
 
   const config = await loadConfig(account_id);
-  if (!config) return; // Fail UI already shown inside loadConfig()
+  if (!config) return;
 
   const userData = getUserContext();
   const enrichedConfig = {
     ...config,
     ...userData,
-	account_id
+    account_id,
+    preview: isPreviewMode()
   };
 
   console.log("✅ Loaded config for account:", account_id, enrichedConfig);
