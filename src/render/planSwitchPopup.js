@@ -4,11 +4,46 @@ import { getButtonClass } from "../utils/buttonStyles";
 import { renderPreviewRedirect } from "../utils/renderHelpers";
 import { fireAnalytics } from '../utils/tracking';
 import { logEvent } from '../utils/logger';
+import { getUserContext } from '../utils/configHelpers';
+
+function parsePrice(priceString) {
+  return parseFloat(priceString.replace(/[^0-9.]/g, ""));
+}
 
 export function renderPlanSwitchPopup(strings, settings, config, copy, state, renderNextStep) {
   const container = document.getElementById("widget-container");
   container.innerHTML = "";
 
+  const user = getUserContext();
+  const allPlans = settings.plans || [];
+
+  const currentPlan = allPlans.find(p => p.id === user.user_plan);
+
+  if (!currentPlan) {
+    console.warn("⚠️ Current user_plan not found in plan list:", user.user_plan);
+    fireAnalytics("plan_switch_skipped_missing_plan", config);
+    state.currentStepIndex++;
+    renderNextStep();
+    return;
+  }
+
+  const currentPrice = parsePrice(currentPlan.price);
+  const currentInterval = currentPlan.interval;
+
+  const validPlans = allPlans.filter(plan =>
+    plan.interval === currentInterval &&
+    parsePrice(plan.price) < currentPrice
+  );
+
+  if (validPlans.length === 0) {
+    console.info("ℹ️ No valid plan switch options. Skipping step.");
+    fireAnalytics("plan_switch_skipped_autoskip", config);
+    state.currentStepIndex++;
+    renderNextStep();
+    return;
+  }
+
+  // CONTINUE with popup rendering
   const wrapper = document.createElement("div");
   wrapper.className = "popup-content";
 
@@ -25,16 +60,12 @@ export function renderPlanSwitchPopup(strings, settings, config, copy, state, re
   label.htmlFor = select.id;
   label.textContent = getCopy("plan_switch.dropdown_label", config);
 
-  if (Array.isArray(settings.plans) && settings.plans.length > 0) {
-    settings.plans.forEach(plan => {
-      const opt = document.createElement("option");
-      opt.value = plan.id;
-      opt.textContent = `${plan.name} - ${plan.price}`;
-      select.appendChild(opt);
-    });
-  } else {
-    console.warn("⚠️ No plans provided for plan_switch step");
-  }
+  validPlans.forEach(plan => {
+    const opt = document.createElement("option");
+    opt.value = plan.id;
+    opt.textContent = `${plan.name} - ${plan.price}`;
+    select.appendChild(opt);
+  });
 
   labelSelectWrapper.appendChild(label);
   labelSelectWrapper.appendChild(select);

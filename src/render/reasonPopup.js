@@ -2,6 +2,7 @@ import { renderDiscountPopup } from './discountPopup';
 import { renderPausePopup } from './pausePopup';
 import { renderPlanSwitchPopup } from './planSwitchPopup';
 import { renderUserFeedbackPopup } from './userFeedbackPopup';
+import { renderBillingCycleSwitchPopup } from './billingCycleSwitchPopup';
 import { renderFinalMessage } from "./finalPopup";
 import { createHeadline, createSubheadline, createButton } from "../utils/domHelpers";
 import { getCopy } from "../utils/getCopy";
@@ -92,6 +93,7 @@ function renderInitialPopup(config, state) {
         if (type === "discount" && config.discount?.enabled === false) return false;
         if (type === "pause" && config.pause?.enabled === false) return false;
         if (type === "plan_switch" && config.plan_switch?.enabled === false) return false;
+		if (type === "billing_cycle_switch" && config.billing_cycle_switch?.enabled === false) return false;
         return true;
       });
 
@@ -139,6 +141,8 @@ function renderNextStep(config, copy, state) {
       renderer(prompt, config, copy, state, goNext);
     } else if (baseType === "pause") {
       renderer(copy.pause, config.pause || {}, config, copy, state, goNext);
+    } else if (baseType === "billing_cycle_switch") {
+      renderer(copy.billing_cycle_switch, config.billing_cycle_switch || {}, config, copy, state, goNext);
     } else if (baseType === "plan_switch") {
       renderer(copy.plan_switch, config.plan_switch || {}, config, copy, state, goNext);
     } else {
@@ -157,6 +161,7 @@ const stepRenderers = {
 
   pause: renderPausePopup,
   plan_switch: renderPlanSwitchPopup,
+  billing_cycle_switch: renderBillingCycleSwitchPopup,
 
   user_feedback: (prompt, config, copy, state, goNext) =>
     renderUserFeedbackPopup(prompt, config, copy, state, goNext)
