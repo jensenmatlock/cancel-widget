@@ -1,9 +1,12 @@
 import { createHeadline, createSubheadline, createButton } from "../utils/domHelpers";
-import { getCopy } from '../utils/getCopy';
+import { getCopy } from "../utils/getCopy";
 import { getButtonClass } from "../utils/buttonStyles";
 import { renderPreviewRedirect } from "../utils/renderHelpers";
-import { fireAnalytics } from '../utils/tracking';
-import { logEvent } from '../utils/logger';
+import { fireAnalytics } from "../utils/tracking";
+import { logEvent } from "../utils/logger";
+import { handleSaveMechanism } from "../utils/handleSaveMechanism";
+import { getUserContext } from "../utils/configHelpers";
+import { renderSuccessPopup } from "./successPopup";
 
 export function renderPausePopup(strings, settings, config, copy, state, renderNextStep) {
   const container = document.getElementById("widget-container");
@@ -26,10 +29,10 @@ export function renderPausePopup(strings, settings, config, copy, state, renderN
   label.textContent = getCopy("pause.dropdown_label", config);
 
   if (Array.isArray(settings.durations) && settings.durations.length > 0) {
-    settings.durations.forEach(d => {
+    settings.durations.forEach((d) => {
       const opt = document.createElement("option");
       opt.value = d;
-      opt.textContent = `${d} billing cycle${d > 1 ? 's' : ''}`;
+      opt.textContent = `${d} billing cycle${d > 1 ? "s" : ""}`;
       select.appendChild(opt);
     });
   } else {
@@ -44,12 +47,6 @@ export function renderPausePopup(strings, settings, config, copy, state, renderN
     getButtonClass("primary", config),
     async () => {
       const duration = select.value;
-      const redirectTemplate = settings.redirect_template || "";
-      const userId = config.user_id || "";
-
-      const redirectUrl = redirectTemplate
-        .replace("{{user_id}}", userId.toString())
-        .replace("{{pause_duration}}", duration.toString());
 
       fireAnalytics("pause_selected", config);
 
@@ -57,14 +54,35 @@ export function renderPausePopup(strings, settings, config, copy, state, renderN
         accountId: config.account_id,
         step: "pause_selected",
         reasonKey: state.selectedReason,
-        config
+        config,
       });
 
-      if (config.preview) {
-        renderPreviewRedirect(redirectUrl);
-      } else {
-        window.location.href = redirectUrl;
+      const result = await handleSaveMechanism({
+        type: "pause",
+        config,
+        settings,
+        userContext: getUserContext(),
+        preview: config.preview,
+        extra: { pause_duration: duration },
+      });
+
+      if (result?.preview) {
+        renderPreviewRedirect(null, "Payment Gateway", result.gateway, result.action);
+        return;
       }
+
+      if (result?.redirectUrl) {
+        window.location.href = result.redirectUrl;
+        return;
+      }
+
+      if (result?.handled) {
+        renderSuccessPopup(config, "pause", { pause_duration: duration }, state);
+        return;
+      }
+
+      console.error("❌ Pause failed or unhandled result:", result);
+      alert("Something went wrong trying to pause the subscription. Please try again.");
     }
   );
 
@@ -78,7 +96,7 @@ export function renderPausePopup(strings, settings, config, copy, state, renderN
         accountId: config.account_id,
         step: "pause_skipped",
         reasonKey: state.selectedReason,
-        config
+        config,
       });
 
       state.currentStepIndex++;

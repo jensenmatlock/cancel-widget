@@ -5,6 +5,8 @@ import { renderPreviewRedirect } from "../utils/renderHelpers";
 import { fireAnalytics } from "../utils/tracking";
 import { logEvent } from "../utils/logger";
 import { getUserContext } from "../utils/configHelpers";
+import { handleSaveMechanism } from "../utils/handleSaveMechanism";
+import { renderSuccessPopup } from "./successPopup";
 
 export function renderBillingCycleSwitchPopup(strings, settings, config, copy, state, renderNextStep) {
   const container = document.getElementById("widget-container");
@@ -13,7 +15,7 @@ export function renderBillingCycleSwitchPopup(strings, settings, config, copy, s
   const user = getUserContext();
   const mappings = config.billing_cycle_switch?.mappings || [];
 
-  const matched = mappings.find(m => m.from.id === user.user_plan);
+  const matched = mappings.find(m => m.from.id === user.user_plan_id);
   if (!matched) {
     fireAnalytics("billing_cycle_switch_skipped_autoskip", config);
     state.currentStepIndex++;
@@ -27,11 +29,18 @@ export function renderBillingCycleSwitchPopup(strings, settings, config, copy, s
   const wrapper = document.createElement("div");
   wrapper.className = "popup-content";
 
-  const headline = createHeadline(getCopy("billing_cycle_switch.headline", config));
-  const template = getCopy("billing_cycle_switch.subheadline", config);
-  const subheadlineText = template
+  const templateHeadline = getCopy("billing_cycle_switch.headline", config);
+  const headlineText = templateHeadline
     .replace("{{from_name}}", fromPlan.name)
-	.replace("{{from_price}}", fromPlan.price)
+    .replace("{{from_price}}", fromPlan.price)
+    .replace("{{to_name}}", toPlan.name)
+    .replace("{{to_price}}", toPlan.price);
+  const headline = createHeadline(headlineText);
+
+  const templateSubheadline = getCopy("billing_cycle_switch.subheadline", config);
+  const subheadlineText = templateSubheadline
+    .replace("{{from_name}}", fromPlan.name)
+    .replace("{{from_price}}", fromPlan.price)
     .replace("{{to_name}}", toPlan.name)
     .replace("{{to_price}}", toPlan.price);
   const subheadline = createSubheadline(subheadlineText);
@@ -40,26 +49,52 @@ export function renderBillingCycleSwitchPopup(strings, settings, config, copy, s
     getCopy("billing_cycle_switch.cta_primary", config) || "Switch Billing Cycle",
     getButtonClass("primary", config),
     async () => {
-      const redirect = config.billing_cycle_switch?.redirect_template || "";
-      const url = redirect
-        .replace("{{user_id}}", config.user_id || "")
-        .replace("{{from_id}}", fromPlan.id)
-        .replace("{{to_id}}", toPlan.id);
-
       fireAnalytics("billing_cycle_switch_selected", config);
 
       await logEvent({
         accountId: config.account_id,
         step: "billing_cycle_switch_selected",
         reasonKey: state.selectedReason,
-        config
+        config,
       });
 
-      if (config.preview) {
-        renderPreviewRedirect(url);
-      } else {
-        window.location.href = url;
+      const result = await handleSaveMechanism({
+        type: "billing_cycle_switch",
+        config,
+        settings,
+        userContext: user,
+        preview: config.preview,
+        extra: {
+          from_name: fromPlan.name,
+          from_price: fromPlan.price,
+          to_name: toPlan.name,
+          to_price: toPlan.price,
+        },
+      });
+
+      if (result?.preview) {
+        renderPreviewRedirect(null, result.method, result.gateway, result.action);
+        return;
       }
+
+      if (result?.redirectUrl) {
+        window.location.href = result.redirectUrl;
+        return;
+      }
+
+      if (result?.handled) {
+        renderSuccessPopup(config, "billing_cycle_switch", {
+          from_name: fromPlan.name,
+          from_price: fromPlan.price,
+          to_name: toPlan.name,
+          to_price: toPlan.price,
+        },
+		state);
+        return;
+      }
+
+      console.error("❌ Billing cycle switch failed or unhandled result:", result);
+      alert("Something went wrong trying to switch billing cycle. Please try again.");
     }
   );
 
@@ -73,7 +108,7 @@ export function renderBillingCycleSwitchPopup(strings, settings, config, copy, s
         accountId: config.account_id,
         step: "billing_cycle_switch_skipped",
         reasonKey: state.selectedReason,
-        config
+        config,
       });
 
       state.currentStepIndex++;

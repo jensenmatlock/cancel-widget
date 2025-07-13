@@ -1,0 +1,214 @@
+{
+  "copy": {
+    "final": {
+      "headline": "Thanks for the Feedback",
+      "subheadline": "We're sad to lose you as a customer and hope you'll come back soon. Redirecting to cancel confirmation..."
+    },
+    "pause": {
+      "headline": "Maybe a Break?",
+      "cta_primary": "Pause Subscription",
+      "subheadline": "We can pause your subscription for any period below.  Then you're subscription will resume when you need it.",
+      "cta_secondary": "Continue to Cancel",
+      "dropdown_label": "Pause Duration:"
+    },
+    "general": {
+      "headline": "Thinking of Leaving?",
+      "cta_primary": "Changed My Mind",
+      "subheadline": "We’d love to understand why before you go:",
+      "cta_secondary": "Continue to Cancel"
+    },
+    "success": {
+      "pause": {
+        "headline": "Pause Scheduled",
+        "subheadline": "Your subscription will pause after your current billing period and resume in {{pause_duration}} month(s)."
+      },
+      "discount": {
+        "headline": "Success!",
+        "subheadline": "Your {{amount}}% discount has been applied!"
+      },
+      "cta_primary": "Close",
+      "plan_switch": {
+        "headline": "Plan Updated!",
+        "subheadline": "Your plan has been switched to {{plan_to}} and you've been issued prorated credit for the price difference."
+      },
+      "billing_cycle_switch": {
+        "headline": "Billing Cycle Updated!",
+        "subheadline": "Your plan has been switched to {{plan_to}} and you've been issued prorated credit for the price difference."
+      }
+    },
+    "discount": {
+      "headline": "Wait, Special Discount!",
+      "cta_primary": "Apply Discount",
+      "subheadline": "Keep your subscription and get {{amount}}% off your next {{duration}} months!",
+      "cta_secondary": "Continue to Cancel"
+    },
+    "plan_switch": {
+      "headline": "Want to Switch Plans?",
+      "cta_primary": "Switch Plan",
+      "subheadline": "Select a new plan below that better matches your needs.  Your subscription will be updated immediately and you'll receive prorated credit for the price difference.",
+      "cta_secondary": "Continue to Cancel",
+      "dropdown_label": "New Plan:"
+    },
+    "user_feedback": {
+      "other": {
+        "headline": "Sorry to See You Go",
+        "cta_primary": "Changed My Mind",
+        "placeholder": "Write your response here (optional)...",
+        "subheadline": "Please let us know how we can improve:",
+        "cta_secondary": "Continue to Cancel"
+      },
+      "any_reason": {
+        "headline": "Sorry to See You Go",
+        "cta_primary": "Changed My Mind",
+        "placeholder": "Write your response here (optional)...",
+        "subheadline": "Please let us know how we can improve:",
+        "cta_secondary": "Continue to Cancel"
+      },
+      "bad_experience": {
+        "headline": "We're Sorry",
+        "cta_primary": "Changed My Mind",
+        "placeholder": "Write your response here (optional)...",
+        "subheadline": "We strive to offer the best user experience and clearly we fell short. Please let us know how we can improve:",
+        "cta_secondary": "Continue to Cancel"
+      },
+      "switched_competitor": {
+        "headline": "Sorry to See You Go",
+        "cta_primary": "Changed My Mind",
+        "placeholder": "Write your response here (optional)...",
+        "subheadline": "Please tell us which competitor you're switching to and why:",
+        "cta_secondary": "Continue to Cancel"
+      }
+    },
+    "cancel_reasons": {
+      "reason_1": "Too expensive555555",
+      "reason_2": "Didn’t use it enough",
+      "reason_3": "Switched to a competitor",
+      "reason_4": "Bad experience or support",
+      "reason_5": "Other"
+    },
+    "billing_cycle_switch": {
+      "headline": "Want to Switch to Monthly?",
+      "cta_primary": "Switch Plan",
+      "subheadline": "Switch from {{from_name}} to {{to_name}} at only {{to_price}}/mo! Your subscription will be updated immediately and you'll receive prorated credit for the price difference.",
+      "cta_secondary": "Continue to Cancel"
+    }
+  },
+  "flow": {
+    "logic": [
+      {
+        "steps": [
+          {
+            "type": "billing_cycle_switch"
+          },
+          {
+            "type": "plan_switch"
+          },
+          {
+            "type": "discount"
+          },
+          {
+            "type": "user_feedback.any_reason"
+          }
+        ],
+        "reasonKey": "reason_1"
+      },
+      {
+        "steps": [
+          {
+            "type": "pause"
+          },
+          {
+            "type": "discount"
+          },
+          {
+            "type": "user_feedback.any_reason"
+          }
+        ],
+        "reasonKey": "reason_2"
+      },
+      {
+        "steps": [
+          {
+            "type": "user_feedback.switched_competitor"
+          },
+          {
+            "type": "discount"
+          }
+        ],
+        "reasonKey": "reason_3"
+      },
+      {
+        "steps": [
+          {
+            "type": "user_feedback.bad_experience"
+          },
+          {
+            "type": "discount"
+          }
+        ],
+        "reasonKey": "reason_4"
+      },
+      {
+        "steps": [
+          {
+            "type": "user_feedback.other"
+          },
+          {
+            "type": "discount"
+          }
+        ],
+        "reasonKey": "reason_5"
+      }
+    ],
+    "cancel_reasons": [
+      "reason_1",
+      "reason_2",
+      "reason_3",
+      "reason_4",
+      "reason_5"
+    ]
+  },
+  "pause": {
+    "method": "URL",
+    "enabled": true,
+    "gateway": "",
+    "durations": [],
+    "redirect_template": ""
+  },
+  "theme": "custom",
+  "discount": {
+    "type": "percent",
+    "amount": "",
+    "method": "URL",
+    "enabled": true,
+    "gateway": "",
+    "duration": "",
+    "promo_code": "",
+    "redirect_template": ""
+  },
+  "plan_switch": {
+    "plans": [],
+    "method": "URL",
+    "enabled": true,
+    "gateway": "",
+    "redirect_template": ""
+  },
+  "theme_config": {
+    "font": "Noto Sans",
+    "button_style": "fill",
+    "button_corners": "rounded",
+    "body_font_color": "#4b5563",
+    "title_font_color": "#000000",
+    "primary_button_color": "#3b82f6",
+    "secondary_button_color": "#64748b",
+    "primary_button_font_color": "#ffffff",
+    "secondary_button_font_color": "#ffffff"
+  },
+  "billing_cycle_switch": {
+    "method": "URL",
+    "enabled": true,
+    "gateway": "",
+    "mappings": [],
+    "redirect_template": ""
+  }
+}

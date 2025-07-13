@@ -1,7 +1,24 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import Stripe from "https://esm.sh/stripe@12.6.0?target=deno";
 
+// CORS helper
+function getCorsHeaders() {
+  return {
+    "Access-Control-Allow-Origin": "*",
+    "Access-Control-Allow-Methods": "POST, OPTIONS",
+    "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    "Content-Type": "application/json",
+  };
+}
+
 serve(async (req) => {
+  if (req.method === "OPTIONS") {
+    return new Response(null, {
+      status: 204,
+      headers: getCorsHeaders(),
+    });
+  }
+
   try {
     const { action, data } = await req.json();
     const stripeKey = data.stripe_key;
@@ -13,16 +30,12 @@ serve(async (req) => {
     switch (action) {
       case "pause_subscription":
         return await handlePauseSubscription(stripe, data, accountId);
-
       case "apply_discount":
         return await handleApplyDiscount(stripe, data, accountId);
-
       case "switch_plan":
         return await handleSwitchPlan(stripe, data, accountId);
-
       case "cancel_subscription":
         return await handleCancelSubscription(stripe, data, accountId);
-
       default:
         return badRequest("Unknown action");
     }
@@ -70,15 +83,25 @@ async function handleApplyDiscount(stripe, data, accountId) {
 async function handleSwitchPlan(stripe, data, accountId) {
   try {
     const { subscription_id, new_price_id } = data;
-    if (!subscription_id || !new_price_id) return badRequest("Missing subscription_id or new_price_id");
+    if (!subscription_id || !new_price_id) {
+      return badRequest("Missing subscription_id or new_price_id");
+    }
 
     const subscription = await stripe.subscriptions.retrieve(subscription_id);
     const currentItem = subscription.items.data[0];
 
+    if (!currentItem) {
+      return badRequest("Could not determine current subscription item");
+    }
+
     const updated = await stripe.subscriptions.update(subscription_id, {
-      items: [{ id: currentItem.id, price: new_price_id, quantity: currentItem.quantity || 1 }],
-	  proration_behavior: "none",
-      billing_cycle_anchor: "unchanged"
+      items: [{
+        id: currentItem.id,
+        price: new_price_id,
+        quantity: currentItem.quantity || 1,
+      }],
+      proration_behavior: "create_prorations",
+      billing_cycle_anchor: "unchanged",
     });
 
     return success(`Subscription ${subscription_id} switched to ${new_price_id}`, updated);
@@ -93,7 +116,9 @@ async function handleCancelSubscription(stripe, data, accountId) {
     const subscriptionId = data.subscription_id;
     if (!subscriptionId) return badRequest("Missing subscription_id");
 
-    const cancelled = await stripe.subscriptions.update(subscription_id, {cancel_at_period_end: true});
+    const cancelled = await stripe.subscriptions.update(subscriptionId, {
+      cancel_at_period_end: true,
+    });
 
     return success(`Subscription ${subscriptionId} cancelled`, cancelled);
   } catch (err) {
@@ -103,12 +128,15 @@ async function handleCancelSubscription(stripe, data, accountId) {
 }
 
 async function logError(type, source, err, account_id = "unknown") {
-  await fetch("http://localhost:54321/rest/v1/error_logs", {
+  const supabaseUrl = Deno.env.get("PROJECT_URL");
+  const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+
+  await fetch(`${supabaseUrl}/rest/v1/error_logs`, {
     method: "POST",
     headers: {
-      apikey: Deno.env.get("SUPABASE_ANON_KEY") ?? "",
-      Authorization: `Bearer ${Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""}`,
-      "Content-Type": "application/json"
+      apikey: supabaseServiceKey ?? "",
+      Authorization: `Bearer ${supabaseServiceKey ?? ""}`,
+      "Content-Type": "application/json",
     },
     body: JSON.stringify({
       type,
@@ -116,7 +144,7 @@ async function logError(type, source, err, account_id = "unknown") {
       message: err.message,
       details: err,
       account_id,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
     }),
   });
 }
@@ -124,20 +152,20 @@ async function logError(type, source, err, account_id = "unknown") {
 function success(message, data) {
   return new Response(JSON.stringify({ message, data }), {
     status: 200,
-    headers: { "Content-Type": "application/json" },
+    headers: getCorsHeaders(),
   });
 }
 
 function badRequest(msg) {
   return new Response(JSON.stringify({ error: msg }), {
     status: 400,
-    headers: { "Content-Type": "application/json" },
+    headers: getCorsHeaders(),
   });
 }
 
 function errorResponse(message, details) {
   return new Response(JSON.stringify({ error: message, details }), {
     status: 500,
-    headers: { "Content-Type": "application/json" },
+    headers: getCorsHeaders(),
   });
 }

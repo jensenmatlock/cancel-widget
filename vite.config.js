@@ -2,10 +2,10 @@
 export default {
   base: '/cancel-widget/',
   build: {
-    outDir: '.',
+    outDir: 'site',
     emptyOutDir: false, // So it doesn't delete your src/ etc.
     rollupOptions: {
-      input: 'src/main.js',
+      input: 'widget/main.js',
       output: {
         entryFileNames: `widget.js`, // Clean output name
       }

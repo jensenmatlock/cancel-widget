@@ -1,10 +1,12 @@
 import { createHeadline, createSubheadline, createButton } from "../utils/domHelpers";
-import { getCopy } from '../utils/getCopy';
+import { getCopy } from "../utils/getCopy";
 import { getButtonClass } from "../utils/buttonStyles";
 import { renderPreviewRedirect } from "../utils/renderHelpers";
-import { fireAnalytics } from '../utils/tracking';
-import { logEvent } from '../utils/logger';
-import { getUserContext } from '../utils/configHelpers';
+import { fireAnalytics } from "../utils/tracking";
+import { logEvent } from "../utils/logger";
+import { getUserContext } from "../utils/configHelpers";
+import { handleSaveMechanism } from "../utils/handleSaveMechanism";
+import { renderSuccessPopup } from "./successPopup";
 
 function parsePrice(priceString) {
   return parseFloat(priceString.replace(/[^0-9.]/g, ""));
@@ -17,11 +19,11 @@ export function renderPlanSwitchPopup(strings, settings, config, copy, state, re
   const user = getUserContext();
   const allPlans = settings.plans || [];
 
-  const currentPlan = allPlans.find(p => p.id === user.user_plan);
+  const currentPlan = allPlans.find((p) => p.id === user.user_plan_id);
 
   if (!currentPlan) {
-    console.warn("⚠️ Current user_plan not found in plan list:", user.user_plan);
-    fireAnalytics("plan_switch_skipped_missing_plan", config);
+    console.warn("⚠️ Current user_plan_id not found in plan list:", user.user_plan_id);
+    fireAnalytics("plan_switch_skipped_missing_plan_id", config);
     state.currentStepIndex++;
     renderNextStep();
     return;
@@ -30,9 +32,9 @@ export function renderPlanSwitchPopup(strings, settings, config, copy, state, re
   const currentPrice = parsePrice(currentPlan.price);
   const currentInterval = currentPlan.interval;
 
-  const validPlans = allPlans.filter(plan =>
-    plan.interval === currentInterval &&
-    parsePrice(plan.price) < currentPrice
+  const validPlans = allPlans.filter(
+    (plan) =>
+      plan.interval === currentInterval && parsePrice(plan.price) < currentPrice
   );
 
   if (validPlans.length === 0) {
@@ -43,7 +45,6 @@ export function renderPlanSwitchPopup(strings, settings, config, copy, state, re
     return;
   }
 
-  // CONTINUE with popup rendering
   const wrapper = document.createElement("div");
   wrapper.className = "popup-content";
 
@@ -60,7 +61,7 @@ export function renderPlanSwitchPopup(strings, settings, config, copy, state, re
   label.htmlFor = select.id;
   label.textContent = getCopy("plan_switch.dropdown_label", config);
 
-  validPlans.forEach(plan => {
+  validPlans.forEach((plan) => {
     const opt = document.createElement("option");
     opt.value = plan.id;
     opt.textContent = `${plan.name} - ${plan.price}`;
@@ -74,10 +75,8 @@ export function renderPlanSwitchPopup(strings, settings, config, copy, state, re
     getCopy("plan_switch.cta_primary", config),
     getButtonClass("primary", config),
     async () => {
-      const selectedPlan = select.value;
-      const redirectUrl = (settings.redirect_template || "")
-        .replace("{{user_id}}", config.user_id || "")
-        .replace("{{plan_id}}", selectedPlan);
+      const selectedPlanId = select.value;
+      const selectedPlan = allPlans.find((p) => p.id === selectedPlanId);
 
       fireAnalytics("plan_switch_selected", config);
 
@@ -85,14 +84,44 @@ export function renderPlanSwitchPopup(strings, settings, config, copy, state, re
         accountId: config.account_id,
         step: "plan_switch_selected",
         reasonKey: state.selectedReason,
-        config
+        config,
       });
 
-      if (config.preview) {
-        renderPreviewRedirect(redirectUrl);
-      } else {
-        window.location.href = redirectUrl;
+      const result = await handleSaveMechanism({
+        type: "plan_switch",
+        config,
+        settings: { ...settings, price_id: selectedPlanId },
+        userContext: user,
+        preview: config.preview,
+        extra: {
+          plan_from: currentPlan.name,
+          plan_to: selectedPlan?.name,
+          price_to: selectedPlan?.price,
+        },
+      });
+
+      if (result?.preview) {
+        renderPreviewRedirect(null, result.method, result.gateway, result.action);
+        return;
       }
+
+      if (result?.redirectUrl) {
+        window.location.href = result.redirectUrl;
+        return;
+      }
+
+      if (result?.handled) {
+        renderSuccessPopup(config, "plan_switch", {
+          plan_from: currentPlan.name,
+          plan_to: selectedPlan?.name,
+          price_to: selectedPlan?.price,
+        },
+		state);
+        return;
+      }
+
+      console.error("❌ Plan switch failed or unhandled result:", result);
+      alert("Something went wrong trying to switch plans. Please try again.");
     }
   );
 
@@ -106,7 +135,7 @@ export function renderPlanSwitchPopup(strings, settings, config, copy, state, re
         accountId: config.account_id,
         step: "plan_switch_skipped",
         reasonKey: state.selectedReason,
-        config
+        config,
       });
 
       state.currentStepIndex++;
