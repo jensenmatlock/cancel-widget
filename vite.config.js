@@ -1,8 +1,9 @@
 // vite.config.js
 export default {
-  base: '/cancel-widget/',
+    root: 'widget',
+    base: '/',
   build: {
-    outDir: 'site',
+    outDir: '../site',
     emptyOutDir: false, // So it doesn't delete your src/ etc.
     rollupOptions: {
       input: 'widget/main.js',
@@ -12,4 +13,3 @@ export default {
     }
   }
 };
-
