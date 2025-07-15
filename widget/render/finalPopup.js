@@ -1,28 +1,63 @@
-import { getCopy } from '../utils/getCopy';
-import { renderPreviewRedirect } from "../utils/renderHelpers";
+import { getCopy } from '../utils/getCopy.js';
+import { renderPreviewRedirect } from '../utils/renderHelpers.js';
+import { getUserContext } from '../utils/configHelpers.js';
+import { cancelStripeSubscription } from '../utils/stripeHandlers.js';
+import { fireAnalytics } from '../utils/tracking.js';
+import { logEvent } from '../utils/logger.js';
 
+export async function renderFinalMessage(config, state) {
+  const container = document.getElementById('widget-container');
+  container.innerHTML = '';
 
-export function renderFinalMessage(config) {
-  const container = document.getElementById("widget-container");
-  container.innerHTML = "";
+  const wrapper = document.createElement('div');
+  wrapper.className = 'popup-content';
 
-  const wrapper = document.createElement("div");
-  wrapper.className = "popup-content";
+  const headline = document.createElement('h2');
+  headline.textContent = getCopy('final.headline', config);
 
-  const headline = document.createElement("h2");
-  headline.textContent = getCopy("final.headline", config);
-
-  const subheadline = document.createElement("p");
-  subheadline.textContent = getCopy("final.subheadline", config);;
+  const subheadline = document.createElement('p');
+  subheadline.textContent = getCopy('final.subheadline', config);
 
   wrapper.append(headline, subheadline);
   container.appendChild(wrapper);
 
+  const delay = (ms) => new Promise((res) => setTimeout(res, ms));
+  const user = await getUserContext(config);
+  const gateway = config?.credentials?.gateway;
 
-  setTimeout(() => {
+  if (!config.preview && config.final?.cancel_enabled && gateway === 'stripe') {
+    try {
+      await cancelStripeSubscription(
+        user.user_subscription_id,
+        config.credentials.stripe_secret_key,
+        config.account_id
+      );
+    } catch (err) {
+      console.error('❌ Failed to cancel subscription:', err);
+    }
+  }
+
+  // ✅ Clear plan info cache after cancellation
+  const cacheKey = `subjolt_planinfo_${user.user_subscription_id}`;
+  localStorage.removeItem(cacheKey);
+
+  await delay(3000);
+
+  fireAnalytics('cancel_completed', config);
+  await logEvent({
+    accountId: config.account_id,
+    step: 'cancel_completed',
+    reasonKey: state?.selectedReason,
+    config,
+  });
+
   if (config.preview) {
     renderPreviewRedirect();
+  } else if (config.final?.redirect_template) {
+    let redirectUrl = config.final.redirect_template;
+    redirectUrl = redirectUrl.replace('{{user_id}}', config.user_id || '');
+    window.location.href = redirectUrl;
   } else {
-    document.getElementById("widget-container")?.remove();
-  }}, 3000);
+    document.getElementById('widget-container')?.remove();
+  }
 }

@@ -1,79 +1,129 @@
-import { createHeadline, createSubheadline, createButton } from "../utils/domHelpers";
-import { getCopy } from "../utils/getCopy";
-import { getButtonClass } from "../utils/buttonStyles";
-import { renderPreviewRedirect } from "../utils/renderHelpers";
-import { fireAnalytics } from "../utils/tracking";
-import { logEvent } from "../utils/logger";
-import { getUserContext } from "../utils/configHelpers";
-import { handleSaveMechanism } from "../utils/handleSaveMechanism";
-import { renderSuccessPopup } from "./successPopup";
+import {
+  createHeadline,
+  createSubheadline,
+  createButton,
+} from '../utils/domHelpers.js';
+import { getCopy } from '../utils/getCopy.js';
+import { getButtonClass } from '../utils/buttonStyles.js';
+import { renderPreviewRedirect } from '../utils/renderHelpers.js';
+import { fireAnalytics } from '../utils/tracking.js';
+import { logEvent } from '../utils/logger.js';
+import { getUserContext } from '../utils/configHelpers.js';
+import { handleSaveMechanism } from '../utils/handleSaveMechanism.js';
+import { renderSuccessPopup } from './successPopup.js';
 
-export function renderBillingCycleSwitchPopup(strings, settings, config, copy, state, renderNextStep) {
-  const container = document.getElementById("widget-container");
-  container.innerHTML = "";
+function parsePrice(priceString) {
+  return parseFloat(priceString.replace(/[^0-9.]/g, ''));
+}
 
-  const user = getUserContext();
-  const mappings = config.billing_cycle_switch?.mappings || [];
+export async function renderBillingCycleSwitchPopup(
+  strings,
+  settings,
+  config,
+  copy,
+  state,
+  renderNextStep
+) {
+  const container = document.getElementById('widget-container');
+  container.innerHTML = '';
 
-  const matched = mappings.find(m => m.from.id === user.user_plan_id);
-  if (!matched) {
-    fireAnalytics("billing_cycle_switch_skipped_autoskip", config);
+  const user = await getUserContext(config);
+  const allPlans = settings.plans || [];
+  const currentPlan = allPlans.find((p) => p.id === user.user_plan_id);
+
+  if (!currentPlan) {
+    console.warn(
+      '⚠️ Current user_plan_id not found in plan list:',
+      user.user_plan_id
+    );
+    fireAnalytics('billing_cycle_switch_skipped_missing_plan_id', config);
+    state.currentStepIndex++;
+    renderNextStep();
+    return;
+  }
+  const currentPrice = parsePrice(currentPlan.price);
+  const currentInterval = currentPlan.interval;
+
+  const validPlans = allPlans.filter(
+    (plan) =>
+      plan.interval !== currentInterval && parsePrice(plan.price) < currentPrice
+  );
+
+  if (validPlans.length === 0 || currentInterval === 'month') {
+    console.info('ℹ️ No valid billing cycle switch options. Skipping step.');
+    fireAnalytics('billing_cycle_switch_skipped_autoskip', config);
     state.currentStepIndex++;
     renderNextStep();
     return;
   }
 
-  const fromPlan = matched.from;
-  const toPlan = matched.to;
+  const wrapper = document.createElement('div');
+  wrapper.className = 'popup-content';
 
-  const wrapper = document.createElement("div");
-  wrapper.className = "popup-content";
+  const headline = createHeadline(
+    getCopy('billing_cycle_switch.headline', config)
+  );
+  const subheadline = createSubheadline(
+    getCopy('billing_cycle_switch.subheadline', config)
+  );
 
-  const templateHeadline = getCopy("billing_cycle_switch.headline", config);
-  const headlineText = templateHeadline
-    .replace("{{from_name}}", fromPlan.name)
-    .replace("{{from_price}}", fromPlan.price)
-    .replace("{{to_name}}", toPlan.name)
-    .replace("{{to_price}}", toPlan.price);
-  const headline = createHeadline(headlineText);
+  const labelSelectWrapper = document.createElement('div');
+  labelSelectWrapper.className = 'inline-label-select';
 
-  const templateSubheadline = getCopy("billing_cycle_switch.subheadline", config);
-  const subheadlineText = templateSubheadline
-    .replace("{{from_name}}", fromPlan.name)
-    .replace("{{from_price}}", fromPlan.price)
-    .replace("{{to_name}}", toPlan.name)
-    .replace("{{to_price}}", toPlan.price);
-  const subheadline = createSubheadline(subheadlineText);
+  const select = document.createElement('select');
+  select.id = 'billing-cycle-dropdown';
+
+  const label = document.createElement('label');
+  label.htmlFor = select.id;
+  label.textContent = getCopy('billing_cycle_switch.dropdown_label', config);
+
+  validPlans.forEach((plan) => {
+    const opt = document.createElement('option');
+    opt.value = plan.id;
+    opt.textContent = `${plan.name} – ${plan.price}`;
+    select.appendChild(opt);
+  });
+
+  labelSelectWrapper.appendChild(label);
+  labelSelectWrapper.appendChild(select);
 
   const applyBtn = createButton(
-    getCopy("billing_cycle_switch.cta_primary", config) || "Switch Billing Cycle",
-    getButtonClass("primary", config),
+    getCopy('billing_cycle_switch.cta_primary', config),
+    getButtonClass('primary', config),
     async () => {
-      fireAnalytics("billing_cycle_switch_selected", config);
+      const selectedPlanId = select.value;
+      const selectedPlan = allPlans.find((p) => p.id === selectedPlanId);
+
+      fireAnalytics('billing_cycle_switch_selected', config);
 
       await logEvent({
         accountId: config.account_id,
-        step: "billing_cycle_switch_selected",
+        step: 'billing_cycle_switch_selected',
         reasonKey: state.selectedReason,
         config,
       });
 
       const result = await handleSaveMechanism({
-        type: "billing_cycle_switch",
+        type: 'billing_cycle_switch',
         config,
-        settings,
+        settings: { ...settings, price_id: selectedPlanId },
         userContext: user,
         preview: config.preview,
         extra: {
-          from_name: fromPlan.name,
-          from_price: fromPlan.price,
-          to_name: toPlan.name,
-          to_price: toPlan.price,
+          from_name: currentPlan.name,
+          from_price: currentPlan.price,
+          to_name: selectedPlan?.name,
+          to_price: selectedPlan?.price,
         },
       });
 
       if (result?.preview) {
-        renderPreviewRedirect(null, result.method, result.gateway, result.action);
+        renderPreviewRedirect(
+          null,
+          result.method,
+          result.gateway,
+          result.action
+        );
         return;
       }
 
@@ -83,30 +133,39 @@ export function renderBillingCycleSwitchPopup(strings, settings, config, copy, s
       }
 
       if (result?.handled) {
-        renderSuccessPopup(config, "billing_cycle_switch", {
-          from_name: fromPlan.name,
-          from_price: fromPlan.price,
-          to_name: toPlan.name,
-          to_price: toPlan.price,
-        },
-		state);
+        renderSuccessPopup(
+          config,
+          'billing_cycle_switch',
+          {
+            from_name: currentPlan.name,
+            from_price: currentPlan.price,
+            to_name: selectedPlan?.name,
+            to_price: selectedPlan?.price,
+          },
+          state
+        );
         return;
       }
 
-      console.error("❌ Billing cycle switch failed or unhandled result:", result);
-      alert("Something went wrong trying to switch billing cycle. Please try again.");
+      console.error(
+        '❌ Billing cycle switch failed or unhandled result:',
+        result
+      );
+      alert(
+        'Something went wrong trying to switch billing cycle. Please try again.'
+      );
     }
   );
 
   const continueBtn = createButton(
-    getCopy("billing_cycle_switch.cta_secondary", config) || "Continue to Cancel",
-    getButtonClass("secondary", config),
+    getCopy('billing_cycle_switch.cta_secondary', config),
+    getButtonClass('secondary', config),
     async () => {
-      fireAnalytics("billing_cycle_switch_skipped", config);
+      fireAnalytics('billing_cycle_switch_skipped', config);
 
       await logEvent({
         accountId: config.account_id,
-        step: "billing_cycle_switch_skipped",
+        step: 'billing_cycle_switch_skipped',
         reasonKey: state.selectedReason,
         config,
       });
@@ -116,10 +175,10 @@ export function renderBillingCycleSwitchPopup(strings, settings, config, copy, s
     }
   );
 
-  const buttonRow = document.createElement("div");
-  buttonRow.className = "button-row";
+  const buttonRow = document.createElement('div');
+  buttonRow.className = 'button-row';
   buttonRow.append(applyBtn, continueBtn);
 
-  wrapper.append(headline, subheadline, buttonRow);
+  wrapper.append(headline, subheadline, labelSelectWrapper, buttonRow);
   container.appendChild(wrapper);
 }

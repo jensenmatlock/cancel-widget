@@ -1,7 +1,7 @@
 // vite.config.js
 export default {
-    root: 'widget',
-    base: '/',
+  root: 'widget',
+  base: '/',
   build: {
     outDir: '../site',
     emptyOutDir: false, // So it doesn't delete your src/ etc.
@@ -9,7 +9,7 @@ export default {
       input: 'widget/main.js',
       output: {
         entryFileNames: `widget.js`, // Clean output name
-      }
-    }
-  }
+      },
+    },
+  },
 };

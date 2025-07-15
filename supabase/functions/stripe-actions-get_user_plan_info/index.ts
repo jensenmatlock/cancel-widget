@@ -1,13 +1,14 @@
+// deno-lint-ignore-file no-explicit-any
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import Stripe from 'https://esm.sh/stripe@12.6.0?target=deno';
 
 const supabaseUrl = Deno.env.get('PROJECT_URL');
 const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY');
 
-console.log('✅ create_coupon_from_config function loaded');
+console.log('✅ stripe-actions-get_user_plan_info function loaded');
 
-serve(async (req) => {
-  // ✅ Handle preflight (CORS) request
+serve(async (req: Request) => {
+  // Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -16,16 +17,19 @@ serve(async (req) => {
   }
 
   try {
-    const { config, account_id } = await req.json();
+    const body = await req.json();
+    const data = body?.data;
 
-    if (!account_id || !config?.discount) {
+    if (!data || !data.account_id || !data.subscription_id) {
       return new Response(
-        JSON.stringify({ error: 'Missing account_id or config.discount' }),
+        JSON.stringify({ error: 'Missing account_id or subscription_id' }),
         { status: 400, headers: getCorsHeaders() }
       );
     }
 
-    // 1. Fetch Stripe access_token from credentials
+    const { account_id, subscription_id } = data;
+
+    // 1. Fetch Stripe credentials for this account
     const credsRes = await fetch(
       `${supabaseUrl}/rest/v1/credentials?account_id=eq.${account_id}&gateway=eq.stripe`,
       {
@@ -46,52 +50,50 @@ serve(async (req) => {
       );
     }
 
-    // 2. Use connected account access token
+    // 2. Use Stripe with connected account token
     const stripe = Stripe(credentials.access_token, {
       apiVersion: '2022-11-15',
     });
 
-    const { amount, duration, promo_code } = config.discount;
+    // 3. Get subscription and current plan details
+    const subscription = await stripe.subscriptions.retrieve(subscription_id);
 
-    if (!amount || !duration || !promo_code) {
+    if (!subscription?.items?.data?.length) {
       return new Response(
-        JSON.stringify({ error: 'Missing coupon config fields' }),
-        { status: 400, headers: getCorsHeaders() }
+        JSON.stringify({ error: 'No subscription items found' }),
+        { status: 404, headers: getCorsHeaders() }
       );
     }
 
-    // 3. Create the coupon
-    const coupon = await stripe.coupons.create({
-      percent_off: config.discount.type === 'percent' ? amount : undefined,
-      amount_off:
-        config.discount.type === 'dollar'
-          ? Math.round(amount * 100)
-          : undefined,
-      duration: 'repeating',
-      duration_in_months: duration,
+    const item = subscription.items.data[0];
+    const price = await stripe.prices.retrieve(item.price.id, {
+      expand: ['product'],
     });
 
-    // 4. Create promo code with user-specified name
-    const promo = await stripe.promotionCodes.create({
-      coupon: coupon.id,
-      code: promo_code,
-      max_redemptions: 1,
-    });
+    const response = {
+      plan_id: price.id,
+      plan_name:
+        typeof price.product === 'object' ? price.product.name : price.id,
+      plan_interval: price.recurring?.interval,
+      plan_price: `$${((price.unit_amount || 0) / 100).toFixed(2)}`,
+    };
 
-    return new Response(JSON.stringify({ promo }), {
+    return new Response(JSON.stringify(response), {
       status: 200,
       headers: getCorsHeaders(),
     });
-  } catch (err) {
-    console.error('❌ create_coupon_from_config error', err);
+  } catch (err: any) {
+    console.error('❌ get_user_plan_info error', err);
     return new Response(
-      JSON.stringify({ error: 'Internal error', details: err.message }),
+      JSON.stringify({
+        error: 'Internal server error',
+        details: err?.message || 'Unknown error',
+      }),
       { status: 500, headers: getCorsHeaders() }
     );
   }
 });
 
-// 🔧 CORS headers
 function getCorsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',

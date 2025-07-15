@@ -13,9 +13,8 @@ export const loadConfig = async (accountId) => {
     }
 
     return data.config_json;
-
   } catch (err) {
-    console.error("❌ Widget config load error:", err);
+    console.error('❌ Widget config load error:', err);
 
     // Simple end-user message
     showFailMessage();
@@ -25,7 +24,7 @@ export const loadConfig = async (accountId) => {
 };
 
 function showFailMessage() {
-  const failContainer = document.createElement("div");
+  const failContainer = document.createElement('div');
   failContainer.style.cssText = `
     padding: 1.5em;
     background: #ffe5e5;
@@ -43,6 +42,6 @@ function showFailMessage() {
     Please refresh or try again later.
   `;
 
-  document.body.innerHTML = "";
+  document.body.innerHTML = '';
   document.body.appendChild(failContainer);
 }

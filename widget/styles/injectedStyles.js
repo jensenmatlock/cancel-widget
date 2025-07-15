@@ -75,7 +75,7 @@ body {
     max-width: 100%;
     border-radius: 2px;
   }
-  
+
   #widget-container .reason-list {
     margin: 20px 10% 20px 10%;
   }

@@ -1,4 +1,8 @@
-import { applyStripeDiscount, pauseStripeSubscription, switchStripePlan } from "./stripeHandlers";
+import {
+  applyStripeDiscount,
+  pauseStripeSubscription,
+  switchStripePlan,
+} from './stripeHandlers.js';
 
 export async function handleSaveMechanism({
   type,
@@ -11,27 +15,36 @@ export async function handleSaveMechanism({
 }) {
   const method = settings?.method;
 
-  if (method === "URL") {
-    let redirectUrl = settings.redirect_template || "";
+  if (method === 'URL') {
+    let redirectUrl = settings.redirect_template || '';
 
     switch (type) {
-      case "discount":
+      case 'discount':
         redirectUrl = redirectUrl
-          .replace("{{user_id}}", config.user_id || "")
-          .replace("{{promo_code}}", extra?.promo_code || "");
+          .replace(
+            '{{user_subscription_id}}',
+            config.user_subscription_id || ''
+          )
+          .replace('{{promo_code}}', extra?.promo_code || '');
         break;
 
-      case "pause":
+      case 'pause':
         redirectUrl = redirectUrl
-          .replace("{{user_id}}", config.user_id || "")
-          .replace("{{pause_duration}}", extra?.duration?.toString() || "");
+          .replace(
+            '{{user_subscription_id}}',
+            config.user_subscription_id || ''
+          )
+          .replace('{{pause_duration}}', extra?.duration?.toString() || '');
         break;
 
-      case "plan_switch":
-      case "billing_cycle_switch":
+      case 'plan_switch':
+      case 'billing_cycle_switch':
         redirectUrl = redirectUrl
-          .replace("{{user_id}}", config.user_id || "")
-          .replace("{{plan_id}}", settings.price_id || "");
+          .replace(
+            '{{user_subscription_id}}',
+            config.user_subscription_id || ''
+          )
+          .replace('{{plan_id}}', settings.price_id || '');
         break;
     }
 
@@ -40,7 +53,7 @@ export async function handleSaveMechanism({
         handled: true,
         preview: true,
         method,
-        gateway: "URL",
+        gateway: 'URL',
         action: getActionName(type),
         redirectUrl,
       };
@@ -52,7 +65,7 @@ export async function handleSaveMechanism({
     };
   }
 
-  if (method === "Payment Gateway") {
+  if (method === 'Payment Gateway') {
     const gateway = settings?.gateway?.toLowerCase();
 
     if (preview) {
@@ -66,7 +79,7 @@ export async function handleSaveMechanism({
     }
 
     switch (gateway) {
-      case "stripe": {
+      case 'stripe': {
         const result = await handleStripeAction(
           type,
           config,
@@ -81,14 +94,14 @@ export async function handleSaveMechanism({
           } else {
             const contextVars = {
               ...extra,
-              plan_from: userContext.user_plan_name || "",
-              plan_to: extra?.plan_to || "",
-              pause_duration: extra?.duration || "",
-              amount: settings.amount || "",
-              duration: settings.duration || "",
+              from_name: userContext.user_plan_name || '',
+              to_name: extra?.plan_to || '',
+              pause_duration: extra?.duration || '',
+              amount: settings.amount || '',
+              duration: settings.duration || '',
             };
 
-            return { handled: true, shown: "success" };
+            return { handled: true, shown: 'success' };
           }
         }
 
@@ -106,35 +119,51 @@ export async function handleSaveMechanism({
 
 function getActionName(type) {
   switch (type) {
-    case "discount":
-      return "discount";
-    case "pause":
-      return "subscription pause";
-    case "plan_switch":
-      return "plan switch";
-    case "billing_cycle_switch":
-      return "billing cycle switch";
+    case 'discount':
+      return 'discount';
+    case 'pause':
+      return 'subscription pause';
+    case 'plan_switch':
+      return 'plan switch';
+    case 'billing_cycle_switch':
+      return 'billing cycle switch';
     default:
-      return "save mechanism";
+      return 'save mechanism';
   }
 }
 
-async function handleStripeAction(type, config, settings, userContext, extra = {}) {
+async function handleStripeAction(
+  type,
+  config,
+  settings,
+  userContext,
+  extra = {}
+) {
   const { user_subscription_id, user_plan_id } = userContext;
 
   try {
     switch (type) {
-      case "discount":
-        if (!settings.promo_code) throw new Error("Missing promo_code in config");
-        await applyStripeDiscount(user_subscription_id, settings.promo_code, config.credentials?.stripe_secret_key, config.account_id);
+      case 'discount':
+        if (!settings.promo_code)
+          throw new Error('Missing promo_code in config');
+        await applyStripeDiscount(
+          user_subscription_id,
+          settings.promo_code,
+          config.credentials?.stripe_secret_key,
+          config.account_id
+        );
         return { handled: true };
 
-      case "pause":
-        await pauseStripeSubscription(user_subscription_id, config.credentials?.stripe_secret_key, config.account_id);
+      case 'pause':
+        await pauseStripeSubscription(
+          user_subscription_id,
+          config.credentials?.stripe_secret_key,
+          config.account_id
+        );
         return { handled: true };
 
-      case "plan_switch":
-        if (!settings.price_id) throw new Error("Missing price_id in settings");
+      case 'plan_switch':
+        if (!settings.price_id) throw new Error('Missing price_id in settings');
         await switchStripePlan(
           user_subscription_id,
           settings.price_id,
@@ -143,19 +172,19 @@ async function handleStripeAction(type, config, settings, userContext, extra = {
         );
         return { handled: true };
 
-      case "billing_cycle_switch":
-        const mapped = settings.mappings?.find((m) => m.from === user_plan_id);
-        if (!mapped?.to) throw new Error("No billing cycle mapping for user plan");
+      case 'billing_cycle_switch':
+        if (!settings.price_id) throw new Error('Missing price_id in settings');
         await switchStripePlan(
           user_subscription_id,
-          mapped.to,
+          settings.price_id,
           config.credentials?.stripe_secret_key,
-          config.account_id
+          config.account_id,
+          'now'
         );
         return { handled: true };
 
       default:
-        console.warn("🔧 Unhandled Stripe action type:", type);
+        console.warn('🔧 Unhandled Stripe action type:', type);
         return { handled: false };
     }
   } catch (err) {
