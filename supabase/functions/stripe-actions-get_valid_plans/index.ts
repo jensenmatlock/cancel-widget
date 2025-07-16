@@ -16,7 +16,7 @@ serve(async (req) => {
   }
 
   try {
-    const { account_id, interval = 'month' } = await req.json();
+    const { account_id } = await req.json();
 
     if (!account_id) {
       return new Response(JSON.stringify({ error: 'Missing account_id' }), {
@@ -51,7 +51,7 @@ serve(async (req) => {
       apiVersion: '2022-11-15',
     });
 
-    // 3. Fetch prices with the specified interval
+    // 3. Fetch prices
     const prices = await stripe.prices.list({
       active: true,
       expand: ['data.product'],
@@ -60,8 +60,8 @@ serve(async (req) => {
 
     const filtered = prices.data.filter(
       (p) =>
-        p.recurring?.interval === interval &&
-        typeof p.unit_amount === 'number' &&
+        p.recurring &&
+        p.unit_amount !== null &&
         !p.deleted
     );
 

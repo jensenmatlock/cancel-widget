@@ -69,13 +69,13 @@ serve(async (req) => {
           : undefined,
       duration: 'repeating',
       duration_in_months: duration,
+      name: promo_code,
     });
 
     // 4. Create promo code with user-specified name
     const promo = await stripe.promotionCodes.create({
       coupon: coupon.id,
       code: promo_code,
-      max_redemptions: 1,
     });
 
     return new Response(JSON.stringify({ promo }), {
