@@ -23,6 +23,24 @@ export async function renderPausePopup(
   const container = document.getElementById('widget-container');
   container.innerHTML = '';
 
+  if (!Array.isArray(settings.durations) || settings.durations.length === 0) {
+    console.warn('⚠️ No durations provided for pause step');
+    fireAnalytics('pause_skipped_autoskip', config);
+    state.currentStepIndex++;
+    renderNextStep();
+    return;
+  }
+
+  const user = await getUserContext(config);
+
+  if (user.user_plan_interval !== 'month') {
+    console.warn('ℹ️ Ineligible plan interval:', user.user_plan_interval);
+    fireAnalytics('pause_skipped_autoskip', config);
+    state.currentStepIndex++;
+    renderNextStep();
+    return;
+  }
+
   const wrapper = document.createElement('div');
   wrapper.className = 'popup-content';
 
@@ -39,16 +57,12 @@ export async function renderPausePopup(
   label.htmlFor = select.id;
   label.textContent = getCopy('pause.dropdown_label', config);
 
-  if (Array.isArray(settings.durations) && settings.durations.length > 0) {
-    settings.durations.forEach((d) => {
-      const opt = document.createElement('option');
-      opt.value = d;
-      opt.textContent = `${d} billing cycle${d > 1 ? 's' : ''}`;
-      select.appendChild(opt);
-    });
-  } else {
-    console.warn('⚠️ No durations provided for pause step');
-  }
+  settings.durations.forEach((d) => {
+    const opt = document.createElement('option');
+    opt.value = d;
+    opt.textContent = `${d} month${d > 1 ? 's' : ''}`;
+    select.appendChild(opt);
+  });
 
   labelSelectWrapper.appendChild(label);
   labelSelectWrapper.appendChild(select);
@@ -93,12 +107,7 @@ export async function renderPausePopup(
       }
 
       if (result?.handled) {
-        renderSuccessPopup(
-          config,
-          'pause',
-          { pause_duration: duration },
-          state
-        );
+        renderSuccessPopup(config, 'pause', result.contextVars, state);
         return;
       }
 

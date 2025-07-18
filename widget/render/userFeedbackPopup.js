@@ -45,10 +45,10 @@ export function renderUserFeedbackPopup(
     strings.cta_primary || getCopy(`${basePath}.cta_primary`, config),
     getButtonClass('primary', config),
     async () => {
-      fireAnalytics('userFeedback_exit', config);
+      fireAnalytics('user_feedback_exit', config);
       await logEvent({
         accountId: config.account_id,
-        step: 'userFeedback_exit',
+        step: 'user_feedback_exit',
         reasonKey: state.selectedReason,
         config,
       });
@@ -65,7 +65,7 @@ export function renderUserFeedbackPopup(
     strings.cta_secondary || getCopy(`${basePath}.cta_secondary`, config),
     getButtonClass('secondary', config),
     async () => {
-      fireAnalytics('userFeedback_continue', config);
+      fireAnalytics('user_feedback_continue', config);
 
       const rawInput = textarea.value.trim();
       const sanitized = rawInput
@@ -77,11 +77,13 @@ export function renderUserFeedbackPopup(
 
       await logEvent({
         accountId: config.account_id,
-        step: 'userFeedback_continue',
+        step: 'user_feedback_continue',
         reasonKey: state.selectedReason,
         write_in: sanitized,
         config,
       });
+
+      state.writeInFeedback = sanitized;
 
       state.currentStepIndex++;
       renderNextStep();

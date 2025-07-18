@@ -27,18 +27,25 @@ serve(async (req) => {
     if (!stripeKey) return badRequest('Missing Stripe key');
     const stripe = Stripe(stripeKey, { apiVersion: '2022-11-15' });
 
-    switch (action) {
-      case 'pause_subscription':
-        return await handlePauseSubscription(stripe, data, accountId);
-      case 'apply_discount':
-        return await handleApplyDiscount(stripe, data, accountId);
-      case 'switch_plan':
-        return await handleSwitchPlan(stripe, data, accountId);
-      case 'cancel_subscription':
-        return await handleCancelSubscription(stripe, data, accountId);
-      default:
-        return badRequest('Unknown action');
-    }
+switch (action) {
+  case 'pause_subscription':
+    return await handlePauseSubscription(stripe, data, accountId);
+  case 'apply_discount':
+    return await handleApplyDiscount(stripe, data, accountId);
+  case 'switch_plan':
+    return await handleSwitchPlan(stripe, data, accountId);
+  case 'cancel_subscription':
+    return await handleCancelSubscription(stripe, data, accountId);
+  case 'cancel_schedule':
+    return await handleCancelSchedule(stripe, data, accountId);
+  case 'cancel_pause':
+    return await handleCancelPause(stripe, data, accountId);
+  case 'unpause_now':
+    return await handleUnpauseNow(stripe, data, accountId);
+  default:
+    return badRequest('Unknown action');
+}
+
   } catch (err) {
     console.error('❌ Stripe function error:', err);
     return errorResponse('Internal Server Error', err.message);
@@ -47,17 +54,63 @@ serve(async (req) => {
 
 async function handlePauseSubscription(stripe, data, accountId) {
   try {
-    const subscriptionId = data.subscription_id;
-    if (!subscriptionId) return badRequest('Missing subscription_id');
+    const { subscription_id, pause_duration } = data;
 
-    const updated = await stripe.subscriptions.update(subscriptionId, {
-      pause_collection: { behavior: 'mark_uncollectible' },
+    if (!subscription_id || !pause_duration) {
+      return badRequest('Missing subscription_id or pause_duration');
+    }
+
+    // Step 1: Cancel current subscription at period end
+    const subscription = await stripe.subscriptions.update(subscription_id, {
+      cancel_at_period_end: true,
     });
 
-    return success(`Subscription ${subscriptionId} paused`, updated);
+    if (!subscription?.customer || !subscription?.items?.data?.length) {
+      return badRequest('Invalid subscription format');
+    }
+
+    const customer = subscription.customer as string;
+    const price_id = subscription.items.data[0].price.id;
+    const current_period_end = subscription.items.data[0].current_period_end;
+
+    // Step 2: Calculate resume timestamp (in seconds)
+    const resume_timestamp = Math.floor(
+      new Date(current_period_end * 1000).setMonth(
+        new Date(current_period_end * 1000).getMonth() + pause_duration
+      ) / 1000
+    );
+
+    // Step 3: Create schedule to resume at resume_timestamp
+    const schedule = await stripe.subscriptionSchedules.create({
+      customer,
+      start_date: resume_timestamp,
+      end_behavior: 'release',
+      phases: [
+        {
+          items: [{ price: price_id, quantity: 1 }],
+        },
+      ],
+    });
+
+return new Response(JSON.stringify({
+  handled: true,
+  message: `Paused subscription ${subscription_id}`,
+  resume_timestamp,
+  resume_date: new Date(resume_timestamp * 1000).toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+}),
+  schedule_id: schedule.id,
+  subscription_id,
+}), {
+  status: 200,
+  headers: getCorsHeaders(),
+});
+
   } catch (err) {
     await logError('stripe_error', 'pause_subscription', err, accountId);
-    return errorResponse('Pause failed', err.message);
+    return errorResponse('Pause subscription failed', err.message);
   }
 }
 
@@ -135,6 +188,58 @@ async function handleCancelSubscription(stripe, data, accountId) {
     return errorResponse('Cancel failed', err.message);
   }
 }
+
+async function handleCancelSchedule(stripe, data, accountId) {
+  try {
+    const { schedule_id } = data;
+    if (!schedule_id) return badRequest('Missing schedule_id');
+
+    const canceled = await stripe.subscriptionSchedules.cancel(schedule_id);
+
+    return success(`Schedule ${schedule_id} canceled`, cancelled);
+  } catch (err) {
+    await logError('stripe_error', 'cancel_schedule', err, accountId);
+    return errorResponse('Cancel schedule failed', err.message);
+  }
+}
+
+async function handleCancelPause(stripe, data, accountId) {
+  try {
+    const { subscription_id } = data;
+    if (!subscription_id) return badRequest('Missing subscription_id');
+
+    const updated = await stripe.subscriptions.update(subscription_id, {
+      cancel_at_period_end: false,
+    });
+
+    return success(`Pause cleared for subscription ${subscription_id}`, updated);
+  } catch (err) {
+    await logError('stripe_error', 'cancel_pause', err, accountId);
+    return errorResponse('Cancel pause failed', err.message);
+  }
+}
+
+async function handleUnpauseNow(stripe, data, accountId) {
+  try {
+    const { customer_id, price_id } = data;
+    if (!customer_id || !price_id) {
+      return badRequest('Missing customer_id or price_id');
+    }
+
+    const subscription = await stripe.subscriptions.create({
+      customer: customer_id,
+      items: [{ price: price_id }],
+      cancel_at_period_end: false,
+      trial_end: 'now',
+    });
+
+    return success(`Subscription reactivated for customer ${customer_id}`, subscription);
+  } catch (err) {
+    await logError('stripe_error', 'unpause_now', err, accountId);
+    return errorResponse('Unpause now failed', err.message);
+  }
+}
+
 
 async function logError(type, source, err, account_id = 'unknown') {
   const supabaseUrl = Deno.env.get('PROJECT_URL');

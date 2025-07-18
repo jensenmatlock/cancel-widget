@@ -96,12 +96,16 @@ export async function handleSaveMechanism({
               ...extra,
               from_name: userContext.user_plan_name || '',
               to_name: extra?.plan_to || '',
-              pause_duration: extra?.duration || '',
+              pause_duration:
+                extra?.pause_duration ||
+                extra?.duration ||
+                result.pause_duration ||
+                '',
               amount: settings.amount || '',
-              duration: settings.duration || '',
+              resume_date: result.resume_date || '',
             };
 
-            return { handled: true, shown: 'success' };
+            return { handled: true, shown: 'success', contextVars };
           }
         }
 
@@ -155,12 +159,18 @@ async function handleStripeAction(
         return { handled: true };
 
       case 'pause':
-        await pauseStripeSubscription(
-          user_subscription_id,
-          config.credentials?.stripe_secret_key,
-          config.account_id
-        );
-        return { handled: true };
+        try {
+          const result = await pauseStripeSubscription(
+            user_subscription_id,
+            config.credentials?.stripe_secret_key,
+            config.account_id,
+            extra?.pause_duration
+          );
+          return result;
+        } catch (err) {
+          console.error('Pause subscription error details:', err);
+          return { handled: false, error: err.message };
+        }
 
       case 'plan_switch':
         if (!settings.price_id) throw new Error('Missing price_id in settings');

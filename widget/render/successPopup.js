@@ -7,6 +7,7 @@ import { getCopy } from '../utils/getCopy.js';
 import { getButtonClass } from '../utils/buttonStyles.js';
 import { fireAnalytics } from '../utils/tracking.js';
 import { logEvent } from '../utils/logger.js';
+import { getUserContext } from '../utils/configHelpers.js';
 
 export async function renderSuccessPopup(
   config,

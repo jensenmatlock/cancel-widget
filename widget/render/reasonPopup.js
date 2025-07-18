@@ -22,6 +22,7 @@ export async function loadCancelFlow(config) {
     selectedReason: null,
     currentStepIndex: 0,
     currentStepSet: [],
+    writeInFeedback: null,
   };
   renderInitialPopup(config, state);
 }
@@ -137,7 +138,7 @@ function renderInitialPopup(config, state) {
 function renderNextStep(config, copy, state) {
   const step = state.currentStepSet[state.currentStepIndex];
   if (!step) {
-    renderFinalMessage(config);
+    renderFinalMessage(config, copy, state);
     return;
   }
 

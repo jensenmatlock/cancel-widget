@@ -5,7 +5,7 @@ import { cancelStripeSubscription } from '../utils/stripeHandlers.js';
 import { fireAnalytics } from '../utils/tracking.js';
 import { logEvent } from '../utils/logger.js';
 
-export async function renderFinalMessage(config, state) {
+export async function renderFinalMessage(config, copy, state) {
   const container = document.getElementById('widget-container');
   container.innerHTML = '';
 
@@ -48,6 +48,7 @@ export async function renderFinalMessage(config, state) {
     accountId: config.account_id,
     step: 'cancel_completed',
     reasonKey: state?.selectedReason,
+    write_in: state?.writeInFeedback || null,
     config,
   });
 
