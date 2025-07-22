@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import Stripe from 'https://esm.sh/stripe@12.6.0?target=deno';
+import Stripe from 'https://esm.sh/stripe@12.6.0?bundle';
 
 const supabaseUrl = Deno.env.get('PROJECT_URL');
 const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY');

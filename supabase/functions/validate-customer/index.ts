@@ -35,7 +35,7 @@ serve(async (req) => {
 
     // Fetch customer record
     const { data: customer, error: customerError } = await supabase
-      .from('customers')
+      .from('accounts')
       .select('*')
       .eq('account_id', account_id)
       .maybeSingle();

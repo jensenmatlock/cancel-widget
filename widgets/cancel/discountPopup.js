@@ -8,7 +8,7 @@ import { getButtonClass } from '../utils/buttonStyles.js';
 import { renderPreviewRedirect } from '../utils/renderHelpers.js';
 import { fireAnalytics } from '../utils/tracking.js';
 import { logEvent } from '../utils/logger.js';
-import { discountIconSVG } from '../assets/discountIcon.js';
+import { discountIconSVG } from './discountIcon.js';
 import { handleSaveMechanism } from '../utils/handleSaveMechanism.js';
 import { getUserContext } from '../utils/configHelpers.js';
 import { renderSuccessPopup } from './successPopup.js';

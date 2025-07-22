@@ -28,6 +28,10 @@ export async function loadCancelFlow(config) {
 }
 
 function renderInitialPopup(config, state) {
+  const overlay = document.createElement('div');
+  overlay.id = 'cancel-overlay';
+  overlay.className = 'cancel-overlay';
+
   const container = document.getElementById('widget-container');
   container.innerHTML = '';
 
@@ -74,6 +78,7 @@ function renderInitialPopup(config, state) {
         renderPreviewRedirect(); // will show "closing widget" fallback
       } else {
         document.getElementById('widget-container')?.remove();
+        document.getElementById('cancel-overlay')?.remove();
       }
     }
   );
@@ -133,6 +138,7 @@ function renderInitialPopup(config, state) {
   buttonRow.append(exitBtn, continueBtn);
 
   container.append(headline, subheadline, reasonWrapper, buttonRow);
+  document.body.appendChild(overlay);
 }
 
 function renderNextStep(config, copy, state) {

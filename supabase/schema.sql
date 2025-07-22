@@ -26,7 +26,7 @@ SET default_tablespace = '';
 SET default_table_access_method = "heap";
 
 
-CREATE TABLE IF NOT EXISTS "public"."cancel_logs" (
+CREATE TABLE IF NOT EXISTS "public"."event_logs" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "account_id" "text",
     "session_id" "text",
@@ -37,30 +37,30 @@ CREATE TABLE IF NOT EXISTS "public"."cancel_logs" (
 );
 
 
-ALTER TABLE "public"."cancel_logs" OWNER TO "postgres";
+ALTER TABLE "public"."event_logs" OWNER TO "postgres";
 
 
-COMMENT ON COLUMN "public"."cancel_logs"."id" IS 'Primary key, default uuid()';
-
-
-
-COMMENT ON COLUMN "public"."cancel_logs"."account_id" IS 'Matches config.account_id';
+COMMENT ON COLUMN "public"."event_logs"."id" IS 'Primary key, default uuid()';
 
 
 
-COMMENT ON COLUMN "public"."cancel_logs"."session_id" IS 'Unique per cancel session';
+COMMENT ON COLUMN "public"."event_logs"."account_id" IS 'Matches config.account_id';
 
 
 
-COMMENT ON COLUMN "public"."cancel_logs"."step" IS 'What step was taken';
+COMMENT ON COLUMN "public"."event_logs"."session_id" IS 'Unique per cancel session';
 
 
 
-COMMENT ON COLUMN "public"."cancel_logs"."reason_key" IS 'Cancel reason (e.g. reason_1)';
+COMMENT ON COLUMN "public"."event_logs"."step" IS 'What step was taken';
 
 
 
-COMMENT ON COLUMN "public"."cancel_logs"."write_in" IS '	Optional manual entry';
+COMMENT ON COLUMN "public"."event_logs"."reason_key" IS 'Cancel reason (e.g. reason_1)';
+
+
+
+COMMENT ON COLUMN "public"."event_logs"."write_in" IS '	Optional manual entry';
 
 
 
@@ -95,7 +95,7 @@ CREATE TABLE IF NOT EXISTS "public"."credentials" (
 ALTER TABLE "public"."credentials" OWNER TO "postgres";
 
 
-CREATE TABLE IF NOT EXISTS "public"."customers" (
+CREATE TABLE IF NOT EXISTS "public"."accounts" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
     "account_id" "text" NOT NULL,
     "email" "text" NOT NULL,
@@ -105,7 +105,7 @@ CREATE TABLE IF NOT EXISTS "public"."customers" (
 );
 
 
-ALTER TABLE "public"."customers" OWNER TO "postgres";
+ALTER TABLE "public"."accounts" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."default_configs" (
@@ -137,8 +137,8 @@ CREATE TABLE IF NOT EXISTS "public"."error_logs" (
 ALTER TABLE "public"."error_logs" OWNER TO "postgres";
 
 
-ALTER TABLE ONLY "public"."cancel_logs"
-    ADD CONSTRAINT "cancel_logs_pkey" PRIMARY KEY ("id");
+ALTER TABLE ONLY "public"."event_logs"
+    ADD CONSTRAINT "event_logs_pkey" PRIMARY KEY ("id");
 
 
 
@@ -157,13 +157,13 @@ ALTER TABLE ONLY "public"."credentials"
 
 
 
-ALTER TABLE ONLY "public"."customers"
-    ADD CONSTRAINT "customers_account_id_key" UNIQUE ("account_id");
+ALTER TABLE ONLY "public"."accounts"
+    ADD CONSTRAINT "accounts_account_id_key" UNIQUE ("account_id");
 
 
 
-ALTER TABLE ONLY "public"."customers"
-    ADD CONSTRAINT "customers_pkey" PRIMARY KEY ("id");
+ALTER TABLE ONLY "public"."accounts"
+    ADD CONSTRAINT "accounts_pkey" PRIMARY KEY ("id");
 
 
 
@@ -181,15 +181,15 @@ CREATE INDEX "credentials_account_gateway_idx" ON "public"."credentials" USING "
 
 
 
-CREATE INDEX "customers_account_id_idx" ON "public"."customers" USING "btree" ("account_id");
+CREATE INDEX "accounts_account_id_idx" ON "public"."accounts" USING "btree" ("account_id");
 
 
 
-CREATE INDEX "customers_domain_idx" ON "public"."customers" USING "btree" ("domain");
+CREATE INDEX "accounts_domain_idx" ON "public"."accounts" USING "btree" ("domain");
 
 
 
-ALTER TABLE "public"."cancel_logs" ENABLE ROW LEVEL SECURITY;
+ALTER TABLE "public"."event_logs" ENABLE ROW LEVEL SECURITY;
 
 
 ALTER TABLE "public"."configs" ENABLE ROW LEVEL SECURITY;
@@ -201,7 +201,7 @@ ALTER TABLE "public"."default_configs" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."error_logs" ENABLE ROW LEVEL SECURITY;
 
 
-CREATE POLICY "insert_anon" ON "public"."cancel_logs" FOR INSERT TO "anon" WITH CHECK (("account_id" IS NOT NULL));
+CREATE POLICY "insert_anon" ON "public"."event_logs" FOR INSERT TO "anon" WITH CHECK (("account_id" IS NOT NULL));
 
 
 
@@ -232,9 +232,9 @@ GRANT USAGE ON SCHEMA "public" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."cancel_logs" TO "anon";
-GRANT ALL ON TABLE "public"."cancel_logs" TO "authenticated";
-GRANT ALL ON TABLE "public"."cancel_logs" TO "service_role";
+GRANT ALL ON TABLE "public"."event_logs" TO "anon";
+GRANT ALL ON TABLE "public"."event_logs" TO "authenticated";
+GRANT ALL ON TABLE "public"."event_logs" TO "service_role";
 
 
 
@@ -250,9 +250,9 @@ GRANT ALL ON TABLE "public"."credentials" TO "service_role";
 
 
 
-GRANT ALL ON TABLE "public"."customers" TO "anon";
-GRANT ALL ON TABLE "public"."customers" TO "authenticated";
-GRANT ALL ON TABLE "public"."customers" TO "service_role";
+GRANT ALL ON TABLE "public"."accounts" TO "anon";
+GRANT ALL ON TABLE "public"."accounts" TO "authenticated";
+GRANT ALL ON TABLE "public"."accounts" TO "service_role";
 
 
 

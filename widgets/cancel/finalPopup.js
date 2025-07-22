@@ -60,5 +60,6 @@ export async function renderFinalMessage(config, copy, state) {
     window.location.href = redirectUrl;
   } else {
     document.getElementById('widget-container')?.remove();
+    document.getElementById('cancel-overlay')?.remove();
   }
 }

@@ -25,7 +25,7 @@ export async function logEvent({
   }
 
   try {
-    const { data, error } = await supabase.from('cancel_logs').insert([
+    const { data, error } = await supabase.from('event_logs').insert([
       {
         account_id: accountId,
         session_id: sessionId,

@@ -57,6 +57,7 @@ export function renderUserFeedbackPopup(
         renderPreviewRedirect();
       } else {
         document.getElementById('widget-container')?.remove();
+        document.getElementById('cancel-overlay')?.remove();
       }
     }
   );

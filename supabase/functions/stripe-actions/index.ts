@@ -1,5 +1,5 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
-import Stripe from 'https://esm.sh/stripe@12.6.0?target=deno';
+import Stripe from 'https://esm.sh/stripe@12.6.0?bundle';
 
 // CORS helper
 function getCorsHeaders() {
@@ -178,9 +178,22 @@ async function handleCancelSubscription(stripe, data, accountId) {
     const subscriptionId = data.subscription_id;
     if (!subscriptionId) return badRequest('Missing subscription_id');
 
+    // Cancel the subscription at period end
     const cancelled = await stripe.subscriptions.update(subscriptionId, {
       cancel_at_period_end: true,
     });
+
+    // Cancel any subscription schedules for this customer
+    const schedules = await stripe.subscriptionSchedules.list({
+      customer: cancelled.customer,
+      limit: 10,
+    });
+
+    for (const schedule of schedules.data) {
+      if (schedule.status !== 'canceled') {
+        await stripe.subscriptionSchedules.cancel(schedule.id);
+      }
+    }
 
     return success(`Subscription ${subscriptionId} cancelled`, cancelled);
   } catch (err) {
@@ -188,6 +201,7 @@ async function handleCancelSubscription(stripe, data, accountId) {
     return errorResponse('Cancel failed', err.message);
   }
 }
+
 
 async function handleCancelSchedule(stripe, data, accountId) {
   try {

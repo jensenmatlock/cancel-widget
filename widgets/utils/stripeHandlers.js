@@ -20,13 +20,14 @@ async function callStripeFunction(action, data) {
 
 function clearAndSeedPlanCache(subscriptionId, updatedData = null) {
   const cacheKey = `subjolt_planinfo_${subscriptionId}`;
-  localStorage.removeItem(cacheKey);
+  sessionStorage.removeItem(cacheKey);
 
   if (updatedData) {
-    localStorage.setItem(
+    sessionStorage.setItem(
       cacheKey,
       JSON.stringify({
         value: {
+          customer_id: updatedData.customer_id || undefined,
           plan_name: updatedData.plan_name || undefined,
           plan_id: updatedData.plan_id || undefined,
           plan_interval: updatedData.plan_interval || undefined,
@@ -37,7 +38,7 @@ function clearAndSeedPlanCache(subscriptionId, updatedData = null) {
           schedule_id: updatedData.schedule_id || null,
           had_recent_subscription: updatedData.had_recent_subscription || false,
         },
-        timestamp: Date.now(),
+        timestamp: Date.now(), // kept for debugging but no TTL now
       })
     );
   }
@@ -64,7 +65,7 @@ export async function switchStripePlan(
   accountId,
   billingCycleAnchor = 'unchanged'
 ) {
-  return callStripeFunction('switch_plan', {
+  const result = await callStripeFunction('switch_plan', {
     subscription_id: subscriptionId,
     price_id: priceId,
     stripe_key: stripeKey,
@@ -80,7 +81,7 @@ export async function cancelStripeSubscription(
   stripeKey,
   accountId
 ) {
-  return callStripeFunction('cancel_subscription', {
+  const result = await callStripeFunction('cancel_subscription', {
     subscription_id: subscriptionId,
     stripe_key: stripeKey,
     account_id: accountId,
@@ -105,7 +106,7 @@ export async function pauseStripeSubscription(
   return {
     handled: true,
     ...result,
-    ...result.data, // Flatten the result
+    ...result.data, // Flatten for consumers
   };
 }
 
@@ -119,7 +120,6 @@ export async function cancelPauseSubscription(
     stripe_key: stripeKey,
     account_id: accountId,
   });
-
   clearAndSeedPlanCache(subscriptionId, result?.data);
   return result;
 }
@@ -132,7 +132,6 @@ export async function unpauseNow(customerId, priceId, stripeKey, accountId) {
     account_id: accountId,
   });
 
-  // `result.data.subscription_id` is the new subscription
   if (result?.data?.subscription_id) {
     clearAndSeedPlanCache(result.data.subscription_id, result?.data);
   }
@@ -146,9 +145,7 @@ export async function cancelSchedule(scheduleId, stripeKey, accountId) {
     account_id: accountId,
   });
 
-  // No subscription context here, just clear everything
-  // (we can't seed because there’s no subscription data)
-  localStorage.removeItem(`subjolt_planinfo_${scheduleId}`);
+  clearAndSeedPlanCache(subscriptionId, result?.data);
   return result;
 }
 
@@ -171,7 +168,7 @@ export async function fetchUserPlanInfo(subscriptionId, accountId, stripeKey) {
   );
 
   if (!response.ok) {
-    const error = await res.json().catch(() => ({}));
+    const error = await response.json().catch(() => ({}));
     throw new Error(error?.error || 'Failed to fetch plan info');
   }
 
