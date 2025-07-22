@@ -18,29 +18,18 @@ async function callStripeFunction(action, data) {
   return response.json();
 }
 
-function clearAndSeedPlanCache(subscriptionId, updatedData = null) {
-  const cacheKey = `subjolt_planinfo_${subscriptionId}`;
-  sessionStorage.removeItem(cacheKey);
-
-  if (updatedData) {
+export function clearAndSeedPlanCache(subscriptionId, planInfo) {
+  try {
+    const cacheKey = `subjolt_planinfo_${subscriptionId}`;
     sessionStorage.setItem(
       cacheKey,
       JSON.stringify({
-        value: {
-          customer_id: updatedData.customer_id || undefined,
-          plan_name: updatedData.plan_name || undefined,
-          plan_id: updatedData.plan_id || undefined,
-          plan_interval: updatedData.plan_interval || undefined,
-          plan_price: updatedData.plan_price || undefined,
-          is_paused: updatedData.is_paused || false,
-          has_upcoming_pause: updatedData.has_upcoming_pause || false,
-          resume_date: updatedData.resume_date || null,
-          schedule_id: updatedData.schedule_id || null,
-          had_recent_subscription: updatedData.had_recent_subscription || false,
-        },
-        timestamp: Date.now(), // kept for debugging but no TTL now
+        value: planInfo,
+        timestamp: Date.now(),
       })
     );
+  } catch (err) {
+    console.error('⚠️ Failed to seed plan cache', err);
   }
 }
 
@@ -132,9 +121,20 @@ export async function unpauseNow(customerId, priceId, stripeKey, accountId) {
     account_id: accountId,
   });
 
-  if (result?.data?.subscription_id) {
-    clearAndSeedPlanCache(result.data.subscription_id, result?.data);
+  // Grab subscription_id safely (Edge now sends it in two places for redundancy)
+  const subscriptionId =
+    result?.data?.subscription_id || result?.subscription_id || null;
+
+  if (subscriptionId) {
+    // Re-seed the session cache immediately so getUserContext() returns updated state
+    clearAndSeedPlanCache(subscriptionId, {
+      ...result?.data,
+      subscription_id: subscriptionId,
+    });
+  } else {
+    console.warn('⚠️ unpauseNow: Missing subscription_id in response', result);
   }
+
   return result;
 }
 

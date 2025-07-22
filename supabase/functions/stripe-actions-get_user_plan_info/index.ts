@@ -22,17 +22,12 @@ serve(async (req: Request) => {
     const { stripe_key, subscription_id } = data;
     const stripe = Stripe(stripe_key, { apiVersion: '2022-11-15' });
 
-    // Fetch subscription + related data in parallel
-    const subscriptionPromise = stripe.subscriptions.retrieve(subscription_id, {
+    // Get subscription details first (to extract customer)
+    const subscription = await stripe.subscriptions.retrieve(subscription_id, {
       expand: ['items.data.price.product'],
     });
-    const schedulesPromise = stripe.subscriptionSchedules.list({
-      customer: undefined, // we fill in after sub
-      limit: 5,
-    });
 
-    const subscription = await subscriptionPromise;
-    if (!subscription?.customer) {
+    if (!subscription || !subscription.customer) {
       return new Response(
         JSON.stringify({ error: 'No valid subscription found' }),
         { status: 404, headers: getCorsHeaders() }
@@ -41,96 +36,103 @@ serve(async (req: Request) => {
 
     const customer_id = subscription.customer as string;
 
-    // Fetch schedules for this customer
-    const schedules = await stripe.subscriptionSchedules.list({
-      customer: customer_id,
-      limit: 5,
-    });
-    const activeSchedule = schedules.data.find((s) => s.status !== 'canceled');
+    // Fetch schedules for this customer (guard against empty results)
+    let schedules = { data: [] as any[] };
+    try {
+      schedules = await stripe.subscriptionSchedules.list({
+        customer: customer_id,
+        limit: 5,
+      });
+    } catch (scheduleErr) {
+      console.warn('⚠️ Failed to fetch subscription schedules:', scheduleErr);
+    }
+    const activeSchedule = schedules.data.find((s) => s?.status !== 'canceled') || null;
     const schedule_id = activeSchedule?.id || null;
 
-    // Active subscription details
-    const item = subscription.items.data[0];
-    const price = item?.price;
+    // Plan and pricing info from active subscription (or fallback later)
+    const item = subscription.items?.data?.[0];
+    const price = item?.price || null;
     const plan_id = price?.id || null;
     const plan_name =
-      typeof price?.product === 'object' ? price.product.name : plan_id;
+      typeof price?.product === 'object' && price.product?.name
+        ? price.product.name
+        : plan_id;
     const plan_interval = price?.recurring?.interval || null;
     const plan_price = price?.unit_amount
       ? `$${(price.unit_amount / 100).toFixed(2)}`
       : null;
 
-    // Pause/upcoming pause logic (custom, not Stripe pause_collection)
+    // State defaults
     let is_paused = false;
     let has_upcoming_pause = false;
     let resume_date: string | null = null;
 
-    // Check subscription + schedule to determine state
     const now = Date.now() / 1000;
     const isActive = subscription.status === 'active';
-    const cancelAtFuture = subscription.cancel_at && subscription.cancel_at > now;
-    const scheduleActive = activeSchedule && activeSchedule.status === 'not_started';
+    const cancelAtFuture = !!subscription.cancel_at && subscription.cancel_at > now;
+    const scheduleActive = !!activeSchedule && activeSchedule.status === 'not_started';
 
-    // Paused: user has a *canceled* subscription AND a scheduled new one
+    // Paused: canceled subscription AND scheduled new sub
     if (subscription.status === 'canceled' && scheduleActive) {
       is_paused = true;
-      if (activeSchedule?.phases?.[0]?.start_date) {
-        resume_date = formatDate(activeSchedule.phases[0].start_date);
-      }
+      const start = activeSchedule?.phases?.[0]?.start_date;
+      if (start) resume_date = formatDate(start);
     }
 
-    // Upcoming pause: user has an *active* sub, a cancel_at date, and a scheduled new one
+    // Upcoming pause: active subscription, cancel_at in future, AND scheduled new sub
     if (isActive && cancelAtFuture && scheduleActive) {
       has_upcoming_pause = true;
-      if (activeSchedule?.phases?.[0]?.start_date) {
-        resume_date = formatDate(activeSchedule.phases[0].start_date);
-      }
+      const start = activeSchedule?.phases?.[0]?.start_date;
+      if (start) resume_date = formatDate(start);
     }
 
-    // Reactivation: No active sub, no "paused" state, but had a canceled sub recently
+    // Reactivation check (no active sub, not paused)
     let had_recent_subscription = false;
     let reactivation_plan_id = plan_id;
     let reactivation_customer_id = customer_id;
 
     if (!isActive && !is_paused) {
-      const oneYearAgo = Math.floor(Date.now() / 1000) - 365 * 24 * 60 * 60;
+      try {
+        const oneYearAgo = Math.floor(Date.now() / 1000) - 365 * 24 * 60 * 60;
+        const pastSubs = await stripe.subscriptions.list({
+          customer: customer_id,
+          status: 'canceled',
+          limit: 5,
+          created: { gte: oneYearAgo },
+          expand: ['data.items.data.price'], // drop .product (avoids depth error)
+        });
 
-      const pastSubs = await stripe.subscriptions.list({
-        customer: customer_id,
-        status: 'canceled',
-        limit: 5,
-        created: { gte: oneYearAgo },
-        expand: ['data.items.data.price.product'],
-      });
-
-      if (pastSubs.data.length > 0) {
-        had_recent_subscription = true;
-
-        // Grab the most recent canceled sub to seed reactivation
-        const lastSub = pastSubs.data.sort(
-          (a, b) => (b.ended_at || 0) - (a.ended_at || 0)
-        )[0];
-
-        if (lastSub?.items?.data?.length) {
-          const lastItem = lastSub.items.data[0];
-          reactivation_plan_id = lastItem.price?.id || null;
-          reactivation_customer_id = lastSub.customer as string;
+        if (pastSubs.data?.length > 0) {
+          had_recent_subscription = true;
+          const lastSub = pastSubs.data.sort(
+            (a, b) => (b.ended_at || 0) - (a.ended_at || 0)
+          )[0];
+          if (lastSub?.items?.data?.[0]?.price) {
+            reactivation_plan_id = lastSub.items.data[0].price.id || null;
+            reactivation_customer_id = lastSub.customer as string;
+          }
         }
+      } catch (pastErr) {
+        console.warn('⚠️ Failed to fetch past subscriptions:', pastErr);
       }
     }
 
+    const final_plan_id = isActive ? plan_id : reactivation_plan_id;
+    const final_customer_id = isActive ? customer_id : reactivation_customer_id;
+
     const response = {
-      plan_id: plan_id || reactivation_plan_id,
+      plan_id: final_plan_id || null,
       plan_name,
       plan_interval,
       plan_price,
-      customer_id: reactivation_customer_id,
+      customer_id: final_customer_id || null,
       is_paused,
       has_upcoming_pause,
       resume_date,
       schedule_id,
       had_recent_subscription,
     };
+
 
     return new Response(JSON.stringify(response), {
       status: 200,
@@ -158,11 +160,15 @@ function getCorsHeaders() {
 }
 
 function formatDate(unixTime: number | null | undefined): string | null {
-  if (!unixTime) return null;
-  const date = new Date(unixTime * 1000);
-  return date.toLocaleDateString('en-US', {
-    month: 'long',
-    day: 'numeric',
-    year: 'numeric',
-  });
+  if (!unixTime || isNaN(unixTime)) return null;
+  try {
+    const date = new Date(unixTime * 1000);
+    return date.toLocaleDateString('en-US', {
+      month: 'long',
+      day: 'numeric',
+      year: 'numeric',
+    });
+  } catch {
+    return null;
+  }
 }

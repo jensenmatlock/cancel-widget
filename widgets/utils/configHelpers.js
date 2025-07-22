@@ -3,27 +3,26 @@ import { fetchUserPlanInfo } from './stripeHandlers.js';
 /**
  * Fetches the current user's subscription and plan context.
  * Works for both cancel widget and banner (root-agnostic).
- * Uses sessionStorage to cache results per session.
- * Pulls from DOM data attributes, Stripe (with caching), or dataLayer.
+ * Pulls from DOM data attributes, Stripe (with session cache), or dataLayer.
  */
 export async function getUserContext(config) {
-  // Find any root element with relevant data (widget or banner)
+  // Locate DOM element with user data (root-agnostic)
   const domRoot =
     document.querySelector('[data-user-subscription-id]') ||
     document.querySelector('[data-user-plan-id]') ||
-    document.querySelector('#widget-container') || // legacy cancel flow root
-    document.querySelector('#banner') || // fallback for banner root
+    document.querySelector('#widget-container') || // legacy
+    document.querySelector('#banner') || // banner root fallback
     document.body;
 
   const attrs = domRoot?.dataset || {};
 
-  // Base user values from DOM
+  // Start with DOM-based values
   let user_id = attrs.userId || attrs.user_id;
   let user_subscription_id =
     attrs.userSubscriptionId || attrs.user_subscription_id;
   let user_ltv = attrs.userLtv || attrs.user_ltv;
 
-  // Plan values (may get overridden by Stripe)
+  // Plan/subscription details (overridden by Stripe if available)
   let user_plan_name = attrs.userPlanName || attrs.user_plan_name || undefined;
   let user_plan_id = attrs.userPlanId || attrs.user_plan_id || undefined;
   let user_plan_interval =
@@ -32,14 +31,14 @@ export async function getUserContext(config) {
     attrs.userPlanPrice || attrs.user_plan_price || undefined;
 
   // Pause/reactivation state defaults
-  let customer_id = null;
   let is_paused = false;
   let has_upcoming_pause = false;
   let resume_date = null;
   let schedule_id = null;
   let had_recent_subscription = false;
+  let customer_id = null;
 
-  // If Stripe is configured, prioritize fetching/caching plan info
+  // Prefer Stripe for plan/subscription state if credentials + sub ID exist
   if (
     config?.credentials?.gateway === 'stripe' &&
     user_subscription_id &&
@@ -50,9 +49,8 @@ export async function getUserContext(config) {
     try {
       const cached = sessionStorage.getItem(cacheKey);
       if (cached) {
-        const { value } = JSON.parse(cached);
+        const value = JSON.parse(cached);
         ({
-          customer_id,
           plan_name: user_plan_name,
           plan_id: user_plan_id,
           plan_interval: user_plan_interval,
@@ -62,36 +60,48 @@ export async function getUserContext(config) {
           resume_date,
           schedule_id,
           had_recent_subscription,
-        } = value);
-      } else {
+          customer_id,
+        } = value || {});
+      }
+
+      // Fetch fresh if cache is missing or incomplete
+      if (!user_plan_id || !user_plan_name || cached === null) {
         const info = await fetchUserPlanInfo(
           user_subscription_id,
           config.account_id,
           config.credentials.stripe_secret_key
         );
 
-        ({
-          customer_id,
-          plan_name: user_plan_name,
-          plan_id: user_plan_id,
-          plan_interval: user_plan_interval,
-          plan_price: user_plan_price,
-          is_paused,
-          has_upcoming_pause,
-          resume_date,
-          schedule_id,
-          had_recent_subscription,
-        } = info);
+        if (info && typeof info === 'object') {
+          ({
+            plan_name: user_plan_name,
+            plan_id: user_plan_id,
+            plan_interval: user_plan_interval,
+            plan_price: user_plan_price,
+            is_paused,
+            has_upcoming_pause,
+            resume_date,
+            schedule_id,
+            had_recent_subscription,
+            customer_id,
+          } = info);
 
-        sessionStorage.setItem(cacheKey, JSON.stringify({ value: info }));
+          // Write defensively to cache (skip if response is empty)
+          if (info.plan_id || info.had_recent_subscription) {
+            sessionStorage.setItem(cacheKey, JSON.stringify(info));
+          }
+        }
       }
     } catch (err) {
-      console.warn('⚠️ Failed to fetch or cache plan info from Stripe:', err);
-      // Fallback to DOM if Stripe fetch fails
+      console.warn(
+        '⚠️ Failed to fetch or cache plan info from Stripe:',
+        err.message
+      );
+      // Continue using DOM values as fallback
     }
   }
 
-  // Fallback: dataLayer (if present)
+  // Final fallback: check window.dataLayer
   if (window.dataLayer) {
     const latest = [...window.dataLayer]
       .reverse()
@@ -111,7 +121,6 @@ export async function getUserContext(config) {
   return {
     user_id,
     user_subscription_id,
-    customer_id,
     user_plan_name,
     user_plan_id,
     user_plan_interval,
@@ -122,5 +131,6 @@ export async function getUserContext(config) {
     resume_date,
     schedule_id,
     had_recent_subscription,
+    customer_id,
   };
 }

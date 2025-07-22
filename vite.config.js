@@ -12,7 +12,6 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    open: '/dev.html', // open dev.html automatically
     watch: {
       usePolling: true, // helps hot reload on some systems
     },

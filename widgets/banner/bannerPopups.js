@@ -12,6 +12,15 @@ import {
   unpauseNow,
   cancelStripeSubscription,
 } from '../utils/stripeHandlers.js';
+import { handleBannerPostAction } from './index.js'; // <-- added import to refresh banner state
+
+/**
+ * Renders a popup for managing pause/reactivation states.
+ * @param {string} condition - 'upcoming_pause', 'paused', or 'reactivation'
+ * @param {object} config - Account-level config object
+ * @param {object} userContext - Current subscription/user state
+ * @param {HTMLElement} bannerEl - The live banner element (so we can refresh/remove it)
+ */
 
 export function renderBannerPopup(
   condition,
@@ -47,8 +56,8 @@ export function renderBannerPopup(
           reasonKey: condition,
           config,
         });
-        if (typeof onActionComplete === 'function') {
-          await onActionComplete();
+        if (bannerEl) {
+          await handleBannerPostAction(bannerEl, config, userContext);
         }
       } catch (err) {
         console.error(`Error handling ${condition} confirm:`, err);
@@ -96,8 +105,8 @@ export function renderBannerPopup(
             reasonKey: 'paused_cancel',
             config,
           });
-          if (typeof onActionComplete === 'function') {
-            await onActionComplete();
+          if (bannerEl) {
+            await handleBannerPostAction(bannerEl, config, userContext);
           }
         } catch (err) {
           console.error(
@@ -183,7 +192,7 @@ async function handleConfirmAction(condition, config, userContext) {
     case 'reactivation':
       await unpauseNow(
         customer_id,
-        plan_id,
+        plan_id || userContext.user_plan_id,
         config.credentials?.stripe_secret_key,
         config.account_id
       );

@@ -6,6 +6,9 @@ import { logEvent } from '../utils/logger.js';
 import { renderBannerPopup } from './bannerPopups.js';
 import { fetchUserPlanInfo } from '../utils/stripeHandlers.js';
 
+/**
+ * Loads the top-of-page subscription banner for pause/reactivation states.
+ */
 export function loadBannerWidget(config, userContext) {
   applyTheme(config);
 
@@ -24,15 +27,11 @@ export function loadBannerWidget(config, userContext) {
   const buttonGroup = document.createElement('div');
   buttonGroup.className = 'banner-buttons';
 
-  // Primary action button (opens popup)
   const actionBtn = createButton(
     getActionLabel(condition),
     getButtonClass('primary', config),
     () => {
-      renderBannerPopup(condition, config, userContext, () => {
-        // Optional callback if we want to reload or refetch state after popup action
-        console.log(`Action completed for ${condition}`);
-      });
+      renderBannerPopup(condition, config, userContext, banner); // Pass banner element
       fireAnalytics('banner_action_clicked', config);
       logEvent({
         accountId: config.account_id,
@@ -49,7 +48,7 @@ export function loadBannerWidget(config, userContext) {
   // Close (dismiss) icon
   const closeIcon = document.createElement('span');
   closeIcon.className = 'banner-close';
-  closeIcon.innerHTML = '&times;'; // × symbol
+  closeIcon.innerHTML = '&times;';
   closeIcon.addEventListener('click', () => {
     banner.remove();
     sessionStorage.setItem('banner_dismissed', 'true');
@@ -63,7 +62,6 @@ export function loadBannerWidget(config, userContext) {
   });
   banner.appendChild(closeIcon);
 
-  // Inject at top of page
   document.body.prepend(banner);
 
   fireAnalytics('banner_shown', config);
@@ -109,8 +107,10 @@ function getActionLabel(condition) {
   }
 }
 
-// Called after any popup-confirmed action to refresh state and hide/update banner
-async function handleBannerPostAction(banner, config, userContext) {
+/**
+ * Called after any popup-confirmed action to refresh state or remove the banner.
+ */
+export async function handleBannerPostAction(banner, config, userContext) {
   try {
     const { user_subscription_id } = userContext;
     if (user_subscription_id) {
@@ -120,27 +120,22 @@ async function handleBannerPostAction(banner, config, userContext) {
         config.credentials?.stripe_secret_key
       );
 
-      // Update userContext with latest state
       Object.assign(userContext, newInfo);
 
-      // Decide whether to hide or update banner based on new state
       const newCondition = getBannerCondition(userContext);
       if (!newCondition) {
-        banner.remove(); // User no longer needs a banner
+        banner.remove();
       } else {
-        // Update banner message dynamically if state changes but banner still relevant
         const message = banner.querySelector('.banner-message');
         if (message) {
           message.textContent = getBannerMessage(newCondition, userContext);
         }
       }
     } else {
-      // No active subscription after action — remove banner entirely
-      banner.remove();
+      banner.remove(); // No active subscription
     }
   } catch (err) {
     console.error('Error refreshing banner state:', err);
-    // As a fallback, remove the banner to avoid showing stale state
-    banner.remove();
+    banner.remove(); // Fallback to avoid stale banner
   }
 }

@@ -240,6 +240,7 @@ async function handleUnpauseNow(stripe, data, accountId) {
       return badRequest('Missing customer_id or price_id');
     }
 
+    // Create a new subscription starting immediately
     const subscription = await stripe.subscriptions.create({
       customer: customer_id,
       items: [{ price: price_id }],
@@ -247,7 +248,13 @@ async function handleUnpauseNow(stripe, data, accountId) {
       trial_end: 'now',
     });
 
-    return success(`Subscription reactivated for customer ${customer_id}`, subscription);
+    // Include subscription_id in the response explicitly for caching + state refresh
+    return success('Subscription reactivated', {
+      subscription_id: subscription.id,
+      customer_id,
+      plan_id: price_id,
+      raw: subscription,
+    });
   } catch (err) {
     await logError('stripe_error', 'unpause_now', err, accountId);
     return errorResponse('Unpause now failed', err.message);
@@ -278,10 +285,17 @@ async function logError(type, source, err, account_id = 'unknown') {
 }
 
 function success(message, data) {
-  return new Response(JSON.stringify({ message, data }), {
-    status: 200,
-    headers: getCorsHeaders(),
-  });
+  return new Response(
+    JSON.stringify({
+      message,
+      data,
+      subscription_id: data?.subscription_id || data?.id || null,
+    }),
+    {
+      status: 200,
+      headers: getCorsHeaders(),
+    }
+  );
 }
 
 function badRequest(msg) {
