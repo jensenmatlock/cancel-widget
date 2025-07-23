@@ -10,6 +10,8 @@ Cancel flow widget and Stripe-powered save mechanisms for subscription recovery.
   - `VITE_SUPABASE_ANON_KEY=...`
 - Dev build: `npm run dev`
 - Prod build: `npm run build` → outputs to `site/widget.js`
+- Run unit tests: `npm test`
+- Run edge function tests: `deno test supabase/functions/<function>/`
 
 ## Supabase CLI
 
