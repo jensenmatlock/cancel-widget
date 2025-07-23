@@ -7188,17 +7188,16 @@ function Sn(s = {}, e, t, r, n) {
       L('secondary', e),
       async () => {
         $('userFeedback_continue');
-        const b = h.value
-          .trim()
-          .replace(/<[^>]*>?/gm, '')
-          .replace(/script/gi, '')
-          .replace(/[<>]/g, '');
-        console.log('Feedback (sanitized):', b),
+        const q = h.value.trim();
+        const parser = new DOMParser();
+        const parsed = parser.parseFromString(q, 'text/html');
+        const a = (parsed.body.textContent || '').replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
+        console.log('Feedback (sanitized):', a),
           await D({
             accountId: e.account_id,
             step: 'userFeedback_continue',
             reasonKey: r.selectedReason,
-            write_in: b,
+            write_in: a,
             config: e,
           }),
           r.currentStepIndex++,
