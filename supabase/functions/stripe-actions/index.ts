@@ -210,7 +210,7 @@ async function handleCancelSchedule(stripe, data, accountId) {
 
     const canceled = await stripe.subscriptionSchedules.cancel(schedule_id);
 
-    return success(`Schedule ${schedule_id} canceled`, cancelled);
+    return success(`Schedule ${schedule_id} canceled`, canceled);
   } catch (err) {
     await logError('stripe_error', 'cancel_schedule', err, accountId);
     return errorResponse('Cancel schedule failed', err.message);
