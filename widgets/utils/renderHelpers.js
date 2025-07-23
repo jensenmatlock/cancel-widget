@@ -1,3 +1,13 @@
+// Helper to escape HTML special characters
+function escapeHTML(str) {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
 export function renderPreviewRedirect(
   redirectUrl,
   method = 'URL',
@@ -26,12 +36,16 @@ export function renderPreviewRedirect(
 
     const displayAction = action || 'this action';
 
+    const sanitizedGateway = escapeHTML(displayGateway);
+    const sanitizedAction = escapeHTML(displayAction);
+
     subheadline.innerHTML = `
-      In live mode, <strong>${displayGateway}</strong> would have processed a <em>${displayAction}</em> here.<br><br>
+      In live mode, <strong>${sanitizedGateway}</strong> would have processed a <em>${sanitizedAction}</em> here.<br><br>
       No redirect occurs in preview.
     `;
   } else if (redirectUrl) {
-    subheadline.innerHTML = `In live mode, the user would have been redirected to:<br><br><code>${redirectUrl}</code>`;
+    const safeUrl = escapeHTML(redirectUrl);
+    subheadline.innerHTML = `In live mode, the user would have been redirected to:<br><br><code>${safeUrl}</code>`;
   } else {
     subheadline.innerHTML = `In live mode, the widget would have <strong>closed</strong> and returned control to your site.`;
   }
