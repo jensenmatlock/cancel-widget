@@ -1,5 +1,6 @@
-const EDGE_FUNCTION_BASE =
-  'https://sdhhujiktuqldbbeczyy.supabase.co/functions/v1/stripe-actions';
+const EDGE_FUNCTION_BASE = `${
+  import.meta.env.VITE_EDGE_BASE_URL
+}/stripe-actions`;
 
 async function callStripeFunction(action, data) {
   const response = await fetch(EDGE_FUNCTION_BASE, {
@@ -156,7 +157,7 @@ export async function cancelSchedule(scheduleId, stripeKey, accountId) {
 
 export async function fetchUserPlanInfo(subscriptionId, accountId, stripeKey) {
   const response = await fetch(
-    `https://sdhhujiktuqldbbeczyy.supabase.co/functions/v1/stripe-actions-get_user_plan_info`,
+    `${import.meta.env.VITE_EDGE_BASE_URL}/stripe-actions-get_user_plan_info`,
     {
       method: 'POST',
       headers: {

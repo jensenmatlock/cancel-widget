@@ -3,7 +3,7 @@ export async function validateCustomer(accountId) {
 
   try {
     const res = await fetch(
-      'https://sdhhujiktuqldbbeczyy.functions.supabase.co/validate-customer',
+      `${import.meta.env.VITE_EDGE_BASE_URL}/validate-customer`,
       {
         method: 'POST',
         headers: {
