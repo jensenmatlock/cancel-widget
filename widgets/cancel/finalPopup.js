@@ -39,7 +39,7 @@ export async function renderFinalMessage(config, copy, state) {
 
   // ✅ Clear plan info cache after cancellation
   const cacheKey = `subjolt_planinfo_${user.user_subscription_id}`;
-  localStorage.removeItem(cacheKey);
+  sessionStorage.removeItem(cacheKey);
 
   await delay(3000);
 

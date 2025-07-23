@@ -21,13 +21,7 @@ async function callStripeFunction(action, data) {
 export function clearAndSeedPlanCache(subscriptionId, planInfo) {
   try {
     const cacheKey = `subjolt_planinfo_${subscriptionId}`;
-    sessionStorage.setItem(
-      cacheKey,
-      JSON.stringify({
-        value: planInfo,
-        timestamp: Date.now(),
-      })
-    );
+    sessionStorage.setItem(cacheKey, JSON.stringify(planInfo));
   } catch (err) {
     console.error('⚠️ Failed to seed plan cache', err);
   }
