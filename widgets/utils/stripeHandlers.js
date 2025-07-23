@@ -139,7 +139,18 @@ export async function cancelSchedule(scheduleId, stripeKey, accountId) {
     account_id: accountId,
   });
 
-  clearAndSeedPlanCache(subscriptionId, result?.data);
+  const subscriptionId =
+    result?.data?.subscription_id || result?.subscription_id || null;
+
+  if (subscriptionId) {
+    clearAndSeedPlanCache(subscriptionId, result?.data);
+  } else {
+    console.warn(
+      '⚠️ cancelSchedule: Missing subscription_id in response',
+      result
+    );
+  }
+
   return result;
 }
 
