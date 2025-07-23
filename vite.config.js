@@ -2,8 +2,8 @@ import { defineConfig } from 'vite';
 import path from 'path';
 
 export default defineConfig({
-  root: 'widgets', // root is widgets folder (where dev.html lives)
-  base: './', // use relative paths for dev/prod
+  root: 'widgets', // Dev server root (where dev.html lives)
+  base: './', // Relative paths (works for local + hosting)
   resolve: {
     alias: {
       '@': path.resolve(__dirname, 'widgets'),
@@ -13,12 +13,19 @@ export default defineConfig({
   server: {
     port: 3000,
     watch: {
-      usePolling: true, // helps hot reload on some systems
+      usePolling: true, // Helps hot reload on Docker/VM setups
     },
   },
   build: {
+    outDir: '../dist', // Output at project root (not inside widgets)
+    emptyOutDir: true, // Clean on each build
+    assetsDir: 'assets', // JS/CSS/images live under /dist/assets/
     rollupOptions: {
-      input: './widgets/dev.html',
+      // Keep dev.html for local dev, but build actual widget bundle
+      input: {
+        widget: './widgets/main.js', // Main JS entry (for production bundle)
+        dev: './widgets/dev.html', // Dev page (optional, not for live use)
+      },
       output: {
         entryFileNames: 'assets/[name].js',
         chunkFileNames: 'assets/[name].js',
