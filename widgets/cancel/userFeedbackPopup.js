@@ -69,10 +69,14 @@ export function renderUserFeedbackPopup(
       fireAnalytics('user_feedback_continue', config);
 
       const rawInput = textarea.value.trim();
-      const sanitized = rawInput
-        .replace(/<[^>]*>?/gm, '')
-        .replace(/script/gi, '')
-        .replace(/[<>]/g, '');
+
+      // Use DOMParser to strip any HTML and script content
+      const parser = new DOMParser();
+      const parsed = parser.parseFromString(rawInput, 'text/html');
+      let sanitized = parsed.body.textContent || '';
+
+      // Remove any remaining control characters
+      sanitized = sanitized.replace(/[\u0000-\u001F\u007F-\u009F]/g, '');
 
       console.log('Feedback (sanitized):', sanitized);
 
