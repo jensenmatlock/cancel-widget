@@ -67,7 +67,7 @@ export async function renderSuccessPopup(
   });
 
   // ✅ Clear plan info cache on success
-  const user = getUserContext();
+  const user = await getUserContext(config);
   const cacheKey = `subjolt_planinfo_${user.user_subscription_id}`;
   localStorage.removeItem(cacheKey);
 }
