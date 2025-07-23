@@ -5,6 +5,10 @@ export function renderPreviewRedirect(
   action = null
 ) {
   const container = document.getElementById('widget-container');
+  if (!container) {
+    console.warn('Widget container element not found');
+    return;
+  }
   container.innerHTML = '';
 
   const wrapper = document.createElement('div');
