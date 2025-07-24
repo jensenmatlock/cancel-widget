@@ -113,7 +113,7 @@ serve(async (req) => {
   });
 });
 
-function getCorsHeaders() {
+export function getCorsHeaders() {
   return {
     'Access-Control-Allow-Origin': '*',
     'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
