@@ -206,3 +206,6 @@ const stepRenderers = {
   user_feedback: (prompt, config, copy, state, goNext) =>
     renderUserFeedbackPopup(prompt, config, copy, state, goNext),
 };
+
+// Expose internal functions for testing purposes
+export { renderNextStep, stepRenderers };
