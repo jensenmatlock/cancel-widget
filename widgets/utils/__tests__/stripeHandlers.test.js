@@ -25,4 +25,27 @@ describe('stripeHandlers', () => {
     const cache = sessionStorage.getItem('subjolt_planinfo_sub');
     expect(cache).not.toBeNull();
   });
+
+  it('cancelPauseSubscription seeds cache', async () => {
+    fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ data: { p: 1 } }) });
+    await handlers.cancelPauseSubscription('subx', 'sk', 'acct');
+    expect(sessionStorage.getItem('subjolt_planinfo_subx')).not.toBeNull();
+  });
+
+  it('unpauseNow seeds cache when subscription_id returned', async () => {
+    fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ data: { subscription_id: 'suby', plan: 2 } }) });
+    await handlers.unpauseNow('cust', 'price', 'sk', 'acct');
+    expect(sessionStorage.getItem('subjolt_planinfo_suby')).not.toBeNull();
+  });
+
+  it('cancelSchedule seeds cache', async () => {
+    fetch.mockResolvedValue({ ok: true, json: () => Promise.resolve({ data: { subscription_id: 'subz', plan: 3 } }) });
+    await handlers.cancelSchedule('sched', 'sk', 'acct');
+    expect(sessionStorage.getItem('subjolt_planinfo_subz')).not.toBeNull();
+  });
+
+  it('throws error when Stripe call fails', async () => {
+    fetch.mockResolvedValue({ ok: false, json: () => Promise.resolve({ error: 'bad' }) });
+    await expect(handlers.applyStripeDiscount('s','c','sk','acct')).rejects.toThrow('bad');
+  });
 });
