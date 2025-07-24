@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import compression from 'vite-plugin-compression';
 import path from 'path';
 
 export default defineConfig({
@@ -16,10 +17,18 @@ export default defineConfig({
       usePolling: true, // Helps hot reload on Docker/VM setups
     },
   },
+  plugins: [compression({ algorithm: 'brotliCompress' })],
   build: {
     outDir: '../dist', // Output at project root (not inside widgets)
     emptyOutDir: true, // Clean on each build
     assetsDir: 'assets', // JS/CSS/images live under /dist/assets/
+    minify: 'terser',
+    terserOptions: {
+      compress: {
+        drop_console: true,
+        drop_debugger: true,
+      },
+    },
     rollupOptions: {
       // Keep dev.html for local dev, but build actual widget bundle
       input: {
