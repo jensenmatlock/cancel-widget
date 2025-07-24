@@ -11,7 +11,7 @@ export function getCorsHeaders() {
   };
 }
 
-serve(async (req) => {
+export async function handler(req: Request, stripeFactory: any = Stripe) {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -25,7 +25,9 @@ serve(async (req) => {
     const accountId = data.account_id || 'unknown';
 
     if (!stripeKey) return badRequest('Missing Stripe key');
-    const stripe = Stripe(stripeKey, { apiVersion: '2022-11-15' });
+    const stripe = typeof stripeFactory === 'function'
+      ? stripeFactory(stripeKey, { apiVersion: '2022-11-15' })
+      : stripeFactory;
 
 switch (action) {
   case 'pause_subscription':
@@ -50,7 +52,11 @@ switch (action) {
     console.error('❌ Stripe function error:', err);
     return errorResponse('Internal Server Error', err.message);
   }
-});
+}
+
+if (import.meta.main) {
+  serve((req) => handler(req));
+}
 
 async function handlePauseSubscription(stripe, data, accountId) {
   try {

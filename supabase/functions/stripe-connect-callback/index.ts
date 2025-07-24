@@ -7,7 +7,10 @@ const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY');
 
 console.log('✅ stripe-connect-callback function loaded');
 
-serve(async (req) => {
+export async function handler(
+  req: Request,
+  fetchFn: typeof fetch = fetch,
+) {
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -42,7 +45,7 @@ serve(async (req) => {
     );
   }
 
-  const tokenRes = await fetch('https://connect.stripe.com/oauth/token', {
+  const tokenRes = await fetchFn('https://connect.stripe.com/oauth/token', {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
@@ -70,7 +73,7 @@ serve(async (req) => {
 
   console.log('🧪 Insert Stripe credentials for account:', state);
 
-  const insertRes = await fetch(`${supabaseUrl}/rest/v1/credentials`, {
+  const insertRes = await fetchFn(`${supabaseUrl}/rest/v1/credentials`, {
     method: 'POST',
     headers: {
       apikey: supabaseServiceKey,
@@ -111,7 +114,11 @@ serve(async (req) => {
       ...getCorsHeaders(),
     },
   });
-});
+}
+
+if (import.meta.main) {
+  serve((req) => handler(req));
+}
 
 export function getCorsHeaders() {
   return {

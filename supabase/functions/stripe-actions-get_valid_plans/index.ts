@@ -6,7 +6,12 @@ const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY');
 
 console.log('✅ get_valid_plans function loaded');
 
-serve(async (req) => {
+export async function handler(
+  req: Request,
+  deps: { stripe?: any; fetchFn?: typeof fetch } = {},
+) {
+  const fetchFn = deps.fetchFn || fetch;
+  const stripeFactory = deps.stripe || Stripe;
   // ✅ Handle CORS preflight
   if (req.method === 'OPTIONS') {
     return new Response(null, {
@@ -26,7 +31,7 @@ serve(async (req) => {
     }
 
     // 1. Fetch access token from credentials
-    const credsRes = await fetch(
+    const credsRes = await fetchFn(
       `${supabaseUrl}/rest/v1/credentials?account_id=eq.${account_id}&gateway=eq.stripe`,
       {
         headers: {
@@ -47,7 +52,7 @@ serve(async (req) => {
     }
 
     // 2. Use connected account Stripe token
-    const stripe = Stripe(credentials.access_token, {
+    const stripe = stripeFactory(credentials.access_token, {
       apiVersion: '2022-11-15',
     });
 
@@ -83,7 +88,11 @@ serve(async (req) => {
       { status: 500, headers: getCorsHeaders() }
     );
   }
-});
+}
+
+if (import.meta.main) {
+  serve((req) => handler(req));
+}
 
 export function getCorsHeaders() {
   return {
