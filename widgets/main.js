@@ -104,3 +104,7 @@ window.addEventListener('DOMContentLoaded', async () => {
     window.SubJolt.renderCancelWidget();
   }
 });
+
+// Export internal helpers for testing
+export { getAccountId, isPreviewMode, getWidgetToRender };
+
