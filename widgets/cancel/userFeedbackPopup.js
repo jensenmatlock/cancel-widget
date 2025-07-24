@@ -58,6 +58,7 @@ export function renderUserFeedbackPopup(
       } else {
         document.getElementById('widget-container')?.remove();
         document.getElementById('cancel-overlay')?.remove();
+        document.body.classList.remove('widget-active');
       }
     }
   );

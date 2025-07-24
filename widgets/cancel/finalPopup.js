@@ -56,10 +56,14 @@ export async function renderFinalMessage(config, copy, state) {
     renderPreviewRedirect();
   } else if (config.final?.redirect_template) {
     let redirectUrl = config.final.redirect_template;
-    redirectUrl = redirectUrl.replace('{{user_id}}', config.user_id || '');
+    redirectUrl = redirectUrl.replace(
+      '{{user_id}}',
+      encodeURIComponent(config.user_id || '')
+    );
     window.location.href = redirectUrl;
   } else {
     document.getElementById('widget-container')?.remove();
     document.getElementById('cancel-overlay')?.remove();
+    document.body.classList.remove('widget-active');
   }
 }

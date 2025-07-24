@@ -23,18 +23,24 @@ export async function handleSaveMechanism({
         redirectUrl = redirectUrl
           .replace(
             '{{user_subscription_id}}',
-            config.user_subscription_id || ''
+            encodeURIComponent(config.user_subscription_id || '')
           )
-          .replace('{{promo_code}}', extra?.promo_code || '');
+          .replace(
+            '{{promo_code}}',
+            encodeURIComponent(extra?.promo_code || '')
+          );
         break;
 
       case 'pause':
         redirectUrl = redirectUrl
           .replace(
             '{{user_subscription_id}}',
-            config.user_subscription_id || ''
+            encodeURIComponent(config.user_subscription_id || '')
           )
-          .replace('{{pause_duration}}', extra?.duration?.toString() || '');
+          .replace(
+            '{{pause_duration}}',
+            encodeURIComponent(extra?.duration?.toString() || '')
+          );
         break;
 
       case 'plan_switch':
@@ -42,9 +48,9 @@ export async function handleSaveMechanism({
         redirectUrl = redirectUrl
           .replace(
             '{{user_subscription_id}}',
-            config.user_subscription_id || ''
+            encodeURIComponent(config.user_subscription_id || '')
           )
-          .replace('{{plan_id}}', settings.price_id || '');
+          .replace('{{plan_id}}', encodeURIComponent(settings.price_id || ''));
         break;
     }
 

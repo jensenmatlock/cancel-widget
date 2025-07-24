@@ -1,0 +1,16 @@
+{
+  "env": {
+    "browser": true,
+    "es2022": true
+  },
+  "extends": "eslint:recommended",
+  "parserOptions": {
+    "sourceType": "module"
+  },
+  "ignorePatterns": ["dist/", "supabase/"],
+  "rules": {
+    "no-unused-vars": "off",
+    "no-undef": "off",
+    "no-control-regex": "off"
+  }
+}

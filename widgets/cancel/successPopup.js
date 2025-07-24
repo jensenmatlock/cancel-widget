@@ -46,6 +46,7 @@ export async function renderSuccessPopup(
     () => {
       document.getElementById('widget-container')?.remove();
       document.getElementById('cancel-overlay')?.remove();
+      document.body.classList.remove('widget-active');
     }
   );
 

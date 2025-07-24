@@ -49,8 +49,8 @@ describe('handleSaveMechanism', () => {
     expect(result.contextVars.from_name).toBe('Pro');
   });
 
-  it('returns URL preview for discount', async () => {
-    const config = { user_subscription_id: 'sub_456' };
+  it('returns URL preview for discount with encoded values', async () => {
+    const config = { user_subscription_id: 'sub 456' };
     const settings = {
       method: 'URL',
       redirect_template:
@@ -62,7 +62,7 @@ describe('handleSaveMechanism', () => {
       settings,
       userContext: {},
       preview: true,
-      extra: { promo_code: 'CODE' },
+      extra: { promo_code: 'CODE+PLUS' },
     });
 
     expect(result).toEqual({
@@ -71,7 +71,7 @@ describe('handleSaveMechanism', () => {
       method: 'URL',
       gateway: 'URL',
       action: 'discount',
-      redirectUrl: 'https://example.com?sub=sub_456&code=CODE',
+      redirectUrl: 'https://example.com?sub=sub%20456&code=CODE%2BPLUS',
     });
   });
 });

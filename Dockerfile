@@ -69,4 +69,4 @@ COPY --from=deps /usr/src/app/node_modules ./node_modules
 EXPOSE 3000
 
 # Run the application.
-CMD start
+CMD npm start
