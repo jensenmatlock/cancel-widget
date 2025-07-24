@@ -1,12 +1,19 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 
-const supabaseUrl = Deno.env.get('PROJECT_URL');
-const supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY');
+let supabaseUrl = Deno.env.get('PROJECT_URL');
+let supabaseServiceKey = Deno.env.get('SERVICE_ROLE_KEY');
 
-const supabase = createClient(supabaseUrl, supabaseServiceKey);
+console.log('✅ validate-customer function loaded');
 
-serve(async (req) => {
+export async function handler(
+  req: Request,
+  deps: { supabase?: any } = {},
+) {
+  supabaseUrl = supabaseUrl || Deno.env.get('PROJECT_URL');
+  supabaseServiceKey = supabaseServiceKey || Deno.env.get('SERVICE_ROLE_KEY');
+  const supabase =
+    deps.supabase || createClient(supabaseUrl, supabaseServiceKey);
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 200,
@@ -96,7 +103,11 @@ serve(async (req) => {
       headers: getCorsHeaders(),
     });
   }
-});
+}
+
+if (import.meta.main) {
+  serve((req) => handler(req));
+}
 
 export function getCorsHeaders() {
   return {

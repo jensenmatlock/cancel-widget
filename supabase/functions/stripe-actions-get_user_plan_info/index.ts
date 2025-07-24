@@ -3,7 +3,10 @@ import Stripe from 'https://esm.sh/stripe@12.6.0?bundle';
 
 console.log('✅ stripe-actions-get_user_plan_info function loaded');
 
-serve(async (req: Request) => {
+export async function handler(
+  req: Request,
+  stripeFactory: any = Stripe,
+) {
   if (req.method === 'OPTIONS') {
     return new Response(null, { status: 200, headers: getCorsHeaders() });
   }
@@ -20,7 +23,10 @@ serve(async (req: Request) => {
     }
 
     const { stripe_key, subscription_id } = data;
-    const stripe = Stripe(stripe_key, { apiVersion: '2022-11-15' });
+    const stripe =
+      typeof stripeFactory === 'function'
+        ? stripeFactory(stripe_key, { apiVersion: '2022-11-15' })
+        : stripeFactory;
 
     // Get subscription details first (to extract customer)
     const subscription = await stripe.subscriptions.retrieve(subscription_id, {
@@ -148,7 +154,11 @@ serve(async (req: Request) => {
       { status: 500, headers: getCorsHeaders() }
     );
   }
-});
+}
+
+if (import.meta.main) {
+  serve((req) => handler(req));
+}
 
 export function getCorsHeaders() {
   return {
