@@ -73,14 +73,14 @@ export function loadBannerWidget(config, userContext) {
   });
 }
 
-function getBannerCondition(user) {
+export function getBannerCondition(user) {
   if (user?.has_upcoming_pause) return 'upcoming_pause';
   if (user?.is_paused) return 'paused';
   if (user?.had_recent_subscription) return 'reactivation';
   return null;
 }
 
-function getBannerMessage(condition, user) {
+export function getBannerMessage(condition, user) {
   const dateText = user?.resume_date || 'soon';
   switch (condition) {
     case 'upcoming_pause':
